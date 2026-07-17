@@ -1,114 +1,42 @@
-import {
-  CapsuleGeometry,
-  CylinderGeometry,
-  Group,
-  Mesh,
-  MeshStandardMaterial,
-  SphereGeometry,
-} from 'three';
+import { Group } from 'three';
+import type { CharacterRenderMetrics, CharacterVisual } from './CharacterVisual';
+import { ProceduralChildCharacter } from './ProceduralChildCharacter';
 
-const skin = new MeshStandardMaterial({ color: 0xc9855a, roughness: 0.88 });
-const hair = new MeshStandardMaterial({ color: 0x1a1718, roughness: 0.95 });
-const shirt = new MeshStandardMaterial({ color: 0x1f7784, roughness: 0.74 });
-const shirtAccent = new MeshStandardMaterial({ color: 0xf1b45a, roughness: 0.78 });
-const trousers = new MeshStandardMaterial({ color: 0x18344b, roughness: 0.86 });
-const shoes = new MeshStandardMaterial({ color: 0xf2e7d8, roughness: 0.8 });
-
+/**
+ * Stable gameplay-facing wrapper around the active character visual. Replacing
+ * the default procedural visual with a GLB-backed CharacterVisual does not
+ * require any PlayerController changes.
+ */
 export class PlayerView {
   readonly root = new Group();
   readonly visualRoot = new Group();
-  private readonly leftArm = new Group();
-  private readonly rightArm = new Group();
-  private readonly leftLeg = new Group();
-  private readonly rightLeg = new Group();
-  private elapsed = 0;
-  private landingCompression = 0;
+  private readonly character: CharacterVisual;
 
-  constructor() {
-    this.root.name = 'temporary-mohammed-character';
-    this.visualRoot.name = 'temporary-mohammed-visual-offset';
+  constructor(character: CharacterVisual = new ProceduralChildCharacter()) {
+    this.character = character;
+    this.root.name = 'mohammed-character-anchor';
+    this.visualRoot.name = 'mohammed-character-visual-adapter';
     this.visualRoot.scale.setScalar(0.96);
+    this.visualRoot.add(character.root);
     this.root.add(this.visualRoot);
-
-    const torso = new Mesh(new CapsuleGeometry(0.27, 0.42, 5, 10), shirt);
-    torso.position.y = 1.16;
-    torso.scale.set(1, 1, 0.76);
-    this.visualRoot.add(torso);
-
-    const stripe = new Mesh(new CylinderGeometry(0.276, 0.276, 0.08, 14), shirtAccent);
-    stripe.position.y = 1.2;
-    stripe.scale.z = 0.76;
-    this.visualRoot.add(stripe);
-
-    const neck = new Mesh(new CylinderGeometry(0.1, 0.11, 0.14, 12), skin);
-    neck.position.y = 1.51;
-    this.visualRoot.add(neck);
-
-    const head = new Mesh(new SphereGeometry(0.25, 18, 14), skin);
-    head.position.y = 1.72;
-    head.scale.set(0.92, 1.08, 0.94);
-    this.visualRoot.add(head);
-
-    const hairCap = new Mesh(new SphereGeometry(0.255, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.53), hair);
-    hairCap.position.y = 1.77;
-    hairCap.scale.set(0.93, 0.68, 0.95);
-    this.visualRoot.add(hairCap);
-
-    this.addFaceDetail();
-    this.makeArm(this.leftArm, -0.32);
-    this.makeArm(this.rightArm, 0.32);
-    this.makeLeg(this.leftLeg, -0.14);
-    this.makeLeg(this.rightLeg, 0.14);
-    this.root.traverse((object) => {
-      if (object instanceof Mesh) {
-        object.castShadow = true;
-        object.receiveShadow = true;
-      }
-    });
   }
 
-  update(delta: number, speedRatio: number, crouching: boolean, grounded: boolean, justLanded: boolean): void {
-    this.elapsed += delta * (3.5 + speedRatio * 7);
-    if (justLanded) this.landingCompression = 1;
-    else this.landingCompression = Math.max(0, this.landingCompression - delta * 7.5);
-    const swing = grounded ? Math.sin(this.elapsed) * 0.72 * speedRatio : 0.18;
-    this.leftArm.rotation.x = swing;
-    this.rightArm.rotation.x = -swing;
-    this.leftLeg.rotation.x = -swing;
-    this.rightLeg.rotation.x = swing;
-    const postureScaleY = crouching ? 0.72 : 0.96;
-    const targetScaleY = postureScaleY * (1 - this.landingCompression * 0.09);
-    this.visualRoot.scale.y += (targetScaleY - this.visualRoot.scale.y) * Math.min(1, delta * 18);
-    this.visualRoot.position.y = crouching ? 0.01 : Math.abs(Math.sin(this.elapsed * 2)) * 0.018 * speedRatio;
+  update(
+    delta: number,
+    speedRatio: number,
+    crouching: boolean,
+    grounded: boolean,
+    justLanded: boolean,
+    verticalVelocity: number,
+  ): void {
+    this.character.update({ delta, speedRatio, crouching, grounded, justLanded, verticalVelocity });
   }
 
-  private addFaceDetail(): void {
-    const eyeMaterial = new MeshStandardMaterial({ color: 0x171b22, roughness: 0.7 });
-    for (const x of [-0.085, 0.085]) {
-      const eye = new Mesh(new SphereGeometry(0.022, 8, 6), eyeMaterial);
-      eye.position.set(x, 1.75, -0.225);
-      this.visualRoot.add(eye);
-    }
+  getPoseName(): string {
+    return this.character.getPoseName();
   }
 
-  private makeArm(group: Group, x: number): void {
-    group.position.set(x, 1.37, 0);
-    const sleeve = new Mesh(new CapsuleGeometry(0.075, 0.16, 4, 8), shirt);
-    sleeve.position.y = -0.1;
-    const hand = new Mesh(new SphereGeometry(0.075, 10, 8), skin);
-    hand.position.y = -0.34;
-    group.add(sleeve, hand);
-    this.visualRoot.add(group);
-  }
-
-  private makeLeg(group: Group, x: number): void {
-    group.position.set(x, 0.88, 0);
-    const leg = new Mesh(new CapsuleGeometry(0.09, 0.38, 4, 8), trousers);
-    leg.position.y = -0.28;
-    const shoe = new Mesh(new CapsuleGeometry(0.09, 0.13, 4, 8), shoes);
-    shoe.position.set(0, -0.57, -0.04);
-    shoe.rotation.x = Math.PI / 2;
-    group.add(leg, shoe);
-    this.visualRoot.add(group);
+  getRenderMetrics(): CharacterRenderMetrics {
+    return this.character.getRenderMetrics();
   }
 }

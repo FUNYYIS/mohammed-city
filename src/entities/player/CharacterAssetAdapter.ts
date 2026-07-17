@@ -23,7 +23,8 @@ export interface HumanoidBoneMap {
 
 /**
  * Contract between the gameplay controller and a future rigged GLB.
- * Phase 1 uses PlayerView as a procedural fallback, so no fake clips are declared.
+ * PlayerView currently uses a lightweight procedural child through the same
+ * visual boundary, so no fake animation clips are declared.
  */
 export class CharacterAssetAdapter {
   constructor(

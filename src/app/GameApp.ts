@@ -10,6 +10,7 @@ import {
 import { ThirdPersonCamera } from '../camera/ThirdPersonCamera';
 import { InputManager } from '../controls/InputManager';
 import { PlayerController } from '../entities/player/PlayerController';
+import type { CharacterRenderMetrics } from '../entities/player/CharacterVisual';
 import { GameUI } from '../ui/GameUI';
 import { TestWorld } from '../world/TestWorld';
 
@@ -26,6 +27,9 @@ declare global {
         playerRootY: number;
         visualLocalY: number;
         cameraTargetY: number;
+        characterPose: string;
+        characterDrawCalls: number;
+        characterTriangles: number;
         drawCalls: number;
         triangles: number;
       };
@@ -41,6 +45,7 @@ export class GameApp {
   private readonly player: PlayerController;
   private readonly cameraRig: ThirdPersonCamera;
   private readonly input: InputManager;
+  private readonly characterMetrics: CharacterRenderMetrics;
   private readonly clock = new Clock(false);
   private started = false;
   private appPaused = false;
@@ -84,8 +89,15 @@ export class GameApp {
     this.world = new TestWorld();
     const { collisions, cameraObstacles } = this.world.getResult();
     this.player = new PlayerController(collisions);
+    this.characterMetrics = this.player.view.getRenderMetrics();
     this.world.scene.add(this.player.view.root);
     this.cameraRig = new ThirdPersonCamera(cameraObstacles);
+    if (new URLSearchParams(window.location.search).has('characterPreview')) {
+      this.cameraRig.distance = 3.35;
+      this.cameraRig.pitch = 0.16;
+      this.player.yaw = Math.PI;
+      this.player.view.root.rotation.y = Math.PI;
+    }
     this.input = new InputManager(canvas);
 
     this.ui.onStart(() => this.start());
@@ -194,6 +206,9 @@ export class GameApp {
       `Visual local Y: ${this.player.view.visualRoot.position.y.toFixed(3)}`,
       `Camera target Y: ${this.debugCameraTarget.y.toFixed(3)}`,
       `Grounded: ${this.player.grounded}`,
+      `Pose: ${this.player.view.getPoseName()}`,
+      `Character calls: ${this.characterMetrics.drawCalls}`,
+      `Character tris: ${Math.round(this.characterMetrics.triangles).toLocaleString('en')}`,
       `1% low: ${onePercentLow.toFixed(0)}`,
       `Draw calls: ${info.render.calls}`,
       `Triangles: ${info.render.triangles.toLocaleString('en')}`,
@@ -239,6 +254,9 @@ export class GameApp {
           playerRootY: this.player.view.root.position.y,
           visualLocalY: this.player.view.visualRoot.position.y,
           cameraTargetY: this.debugCameraTarget.y,
+          characterPose: this.player.view.getPoseName(),
+          characterDrawCalls: this.characterMetrics.drawCalls,
+          characterTriangles: this.characterMetrics.triangles,
           drawCalls: this.renderer.info.render.calls,
           triangles: this.renderer.info.render.triangles,
         };

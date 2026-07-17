@@ -7,7 +7,7 @@ Phase 1 establishes a direct Three.js runtime with no gameplay framework layered
 ## Boundaries
 
 - `controls/`: normalizes keyboard, pointer, and multi-touch controls into one snapshot.
-- `entities/player/`: controller state is independent of the temporary visual character.
+- `entities/player/`: controller state is independent of the approximate procedural child visual.
 - `physics/`: deterministic capsule-versus-static-box movement and anti-tunneling substeps.
 - `camera/`: third-person orbit, smoothing, pitch limits, and obstacle shortening.
 - `world/`: phase-one test environment only. Future zone content must not be placed in `GameApp`.
@@ -15,7 +15,7 @@ Phase 1 establishes a direct Three.js runtime with no gameplay framework layered
 
 ## Character replacement contract
 
-The future file `public/assets/characters/mohammed/mohammed.glb` will be loaded through a `CharacterAssetAdapter`. The controller must continue to expose position, yaw, speed ratio, grounded, and crouch state; animation names and bones will be mapped in the adapter rather than in the controller.
+`PlayerView` accepts the `CharacterVisual` contract and currently hosts `ProceduralChildCharacter`. A future file at `public/assets/characters/mohammed/mohammed.glb` can be loaded through `CharacterAssetAdapter` and a GLB-backed `CharacterVisual` without changing `PlayerController`. Position, yaw, speed ratio, vertical velocity, grounded, and crouch state stay controller-owned; animation names and bones remain adapter-owned.
 
 ## Next architecture gate
 

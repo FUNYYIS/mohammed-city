@@ -2,7 +2,7 @@
 
 ## Included in Phase 1
 
-No third-party visual or audio assets are included. The temporary character, environment, icon source, materials, and geometry are project-authored procedural assets. They are prototypes and are **not** represented as final art.
+No third-party visual or audio assets are included. The approximate child character, environment, icon source, materials, and geometry are project-authored procedural assets. The character is an improved temporary visual and is **not** represented as a final likeness or final art.
 
 ## Researched but not downloaded
 
@@ -17,7 +17,7 @@ Candidate packs must be visually reviewed as a coherent set before download. The
 
 ## Missing final assets
 
-- Rigged boy character with the full requested animation set.
+- Final art-directed GLB boy character and authored animation clips. The current procedural child covers idle, walk, run, jump/fall, and crouch as a lightweight fallback.
 - Coherent stylized-realistic warehouse, street, workshop, and interior kit.
 - Vehicles with interiors and mobile-ready LODs.
 - Licensed environmental, UI, footsteps, doors, and engine audio.

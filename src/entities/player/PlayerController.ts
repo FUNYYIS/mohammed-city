@@ -48,7 +48,7 @@ export class PlayerController {
     this.velocity.z = MathUtils.damp(this.velocity.z, targetVelocityZ, acceleration, safeDelta);
 
     if (hasMovement) {
-      // The temporary character mesh faces -Z, so rotate its visual forward
+      // The character visual faces -Z, so rotate its forward direction
       // toward the movement vector without changing controller semantics.
       const targetYaw = Math.atan2(-desiredDirection.x, -desiredDirection.z);
       let angleDelta = MathUtils.euclideanModulo(targetYaw - this.yaw + Math.PI, Math.PI * 2) - Math.PI;
@@ -88,7 +88,14 @@ export class PlayerController {
     this.currentSpeed = horizontalVelocity.length();
     this.view.root.position.copy(this.position);
     this.view.root.rotation.y = this.yaw;
-    this.view.update(safeDelta, Math.min(1, this.currentSpeed / 4.2), this.crouching, this.grounded, justLanded);
+    this.view.update(
+      safeDelta,
+      Math.min(1, this.currentSpeed / 4.2),
+      this.crouching,
+      this.grounded,
+      justLanded,
+      this.velocity.y,
+    );
   }
 
   getSpeed(): number {
