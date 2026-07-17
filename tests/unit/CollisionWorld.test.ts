@@ -32,4 +32,27 @@ describe('CollisionWorld', () => {
     world.moveCapsule(position, new Vector3(0, -9, 0), { radius: 0.4, height: 1.8 });
     expect(position.y).toBe(0);
   });
+
+  it('stops an upward capsule at a ceiling', () => {
+    const world = new CollisionWorld();
+    world.addBox('ceiling', new Vector3(0, 2.1, 0), new Vector3(4, 0.2, 4));
+    const position = new Vector3(0, 0, 0);
+
+    const result = world.moveCapsuleWithResult(position, new Vector3(0, 0.7, 0), { radius: 0.4, height: 1.82 });
+
+    expect(result.hitCeiling).toBe(true);
+    expect(position.y).toBeCloseTo(0.18);
+    expect(position.y + 1.82).toBeLessThanOrEqual(2.0001);
+  });
+
+  it('lands a falling capsule on a visible platform top', () => {
+    const world = new CollisionWorld();
+    world.addBox('platform', new Vector3(0, 0.25, 0), new Vector3(4, 0.5, 4));
+    const position = new Vector3(0, 1.2, 0);
+
+    const result = world.moveCapsuleWithResult(position, new Vector3(0, -1, 0), { radius: 0.4, height: 1.82 });
+
+    expect(result.hitGround).toBe(true);
+    expect(position.y).toBeCloseTo(0.5);
+  });
 });

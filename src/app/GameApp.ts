@@ -4,6 +4,7 @@ import {
   PCFSoftShadowMap,
   SRGBColorSpace,
   Vector2,
+  Vector3,
   WebGLRenderer,
 } from 'three';
 import { ThirdPersonCamera } from '../camera/ThirdPersonCamera';
@@ -22,6 +23,9 @@ declare global {
         grounded: boolean;
         crouching: boolean;
         player: { x: number; y: number; z: number };
+        playerRootY: number;
+        visualLocalY: number;
+        cameraTargetY: number;
         drawCalls: number;
         triangles: number;
       };
@@ -47,6 +51,7 @@ export class GameApp {
   private readonly frameTimes: number[] = [];
   private longTasks = 0;
   private readonly zeroCameraDelta = new Vector2();
+  private readonly debugCameraTarget = new Vector3();
   private readonly debugEnabled = new URLSearchParams(window.location.search).has('debug');
 
   constructor(root: HTMLElement) {
@@ -172,16 +177,23 @@ export class GameApp {
     this.debugFrameCount += 1;
     this.frameTimes.push(delta);
     if (this.frameTimes.length > 240) this.frameTimes.shift();
-    if (this.debugElapsed < 0.5) return;
-    this.debugFps = this.debugFrameCount / this.debugElapsed;
-    this.debugElapsed = 0;
-    this.debugFrameCount = 0;
+    if (this.debugElapsed >= 0.5) {
+      this.debugFps = this.debugFrameCount / this.debugElapsed;
+      this.debugElapsed = 0;
+      this.debugFrameCount = 0;
+    }
     const info = this.renderer.info;
     const sortedFrames = [...this.frameTimes].sort((a, b) => b - a);
     const slowIndex = Math.min(sortedFrames.length - 1, Math.max(0, Math.floor(sortedFrames.length * 0.01)));
     const onePercentLow = sortedFrames.length ? 1 / Math.max(sortedFrames[slowIndex], 0.001) : 0;
+    this.cameraRig.getSmoothedTarget(this.debugCameraTarget);
     this.ui.updateDebug([
       `<b>${this.debugFps.toFixed(0)} FPS</b>`,
+      `Player Y: ${this.player.position.y.toFixed(3)}`,
+      `Root Y: ${this.player.view.root.position.y.toFixed(3)}`,
+      `Visual local Y: ${this.player.view.visualRoot.position.y.toFixed(3)}`,
+      `Camera target Y: ${this.debugCameraTarget.y.toFixed(3)}`,
+      `Grounded: ${this.player.grounded}`,
       `1% low: ${onePercentLow.toFixed(0)}`,
       `Draw calls: ${info.render.calls}`,
       `Triangles: ${info.render.triangles.toLocaleString('en')}`,
@@ -215,16 +227,22 @@ export class GameApp {
 
   private installTestBridge(): void {
     window.__MC_TEST__ = {
-      getState: () => ({
-        started: this.started,
-        paused: this.appPaused,
-        portrait: this.ui.isPortrait(),
-        grounded: this.player.grounded,
-        crouching: this.player.crouching,
-        player: { x: this.player.position.x, y: this.player.position.y, z: this.player.position.z },
-        drawCalls: this.renderer.info.render.calls,
-        triangles: this.renderer.info.render.triangles,
-      }),
+      getState: () => {
+        this.cameraRig.getSmoothedTarget(this.debugCameraTarget);
+        return {
+          started: this.started,
+          paused: this.appPaused,
+          portrait: this.ui.isPortrait(),
+          grounded: this.player.grounded,
+          crouching: this.player.crouching,
+          player: { x: this.player.position.x, y: this.player.position.y, z: this.player.position.z },
+          playerRootY: this.player.view.root.position.y,
+          visualLocalY: this.player.view.visualRoot.position.y,
+          cameraTargetY: this.debugCameraTarget.y,
+          drawCalls: this.renderer.info.render.calls,
+          triangles: this.renderer.info.render.triangles,
+        };
+      },
     };
   }
 }

@@ -11,6 +11,14 @@ export interface CapsuleShape {
   height: number;
 }
 
+export interface CapsuleMoveResult {
+  position: Vector3;
+  collidedX: boolean;
+  collidedZ: boolean;
+  hitGround: boolean;
+  hitCeiling: boolean;
+}
+
 const candidate = new Vector3();
 
 export class CollisionWorld {
@@ -37,30 +45,80 @@ export class CollisionWorld {
 
     return this.colliders.some(({ bounds }) => {
       if (capsuleMaxY <= bounds.min.y || capsuleMinY >= bounds.max.y) return false;
-      const closestX = Math.max(bounds.min.x, Math.min(position.x, bounds.max.x));
-      const closestZ = Math.max(bounds.min.z, Math.min(position.z, bounds.max.z));
-      const dx = position.x - closestX;
-      const dz = position.z - closestZ;
-      return dx * dx + dz * dz < shape.radius * shape.radius;
+      return this.overlapsBoundsXZ(position, bounds, shape.radius);
     });
   }
 
   moveCapsule(position: Vector3, displacement: Vector3, shape: CapsuleShape): Vector3 {
+    return this.moveCapsuleWithResult(position, displacement, shape).position;
+  }
+
+  moveCapsuleWithResult(position: Vector3, displacement: Vector3, shape: CapsuleShape): CapsuleMoveResult {
     const horizontalDistance = Math.hypot(displacement.x, displacement.z);
     const steps = Math.max(1, Math.ceil(horizontalDistance / Math.max(0.12, shape.radius * 0.45)));
     const stepX = displacement.x / steps;
     const stepZ = displacement.z / steps;
+    let collidedX = false;
+    let collidedZ = false;
+    let hitGround = false;
+    let hitCeiling = false;
 
     candidate.copy(position);
     for (let index = 0; index < steps; index += 1) {
       candidate.x += stepX;
-      if (this.overlapsCapsule(candidate, shape)) candidate.x -= stepX;
+      if (this.overlapsCapsule(candidate, shape)) {
+        candidate.x -= stepX;
+        collidedX = true;
+      }
 
       candidate.z += stepZ;
-      if (this.overlapsCapsule(candidate, shape)) candidate.z -= stepZ;
+      if (this.overlapsCapsule(candidate, shape)) {
+        candidate.z -= stepZ;
+        collidedZ = true;
+      }
     }
 
-    candidate.y = Math.max(0, position.y + displacement.y);
-    return position.copy(candidate);
+    const currentBottom = position.y;
+    const currentTop = position.y + shape.height;
+    let nextY = position.y + displacement.y;
+
+    if (displacement.y > 0) {
+      const proposedTop = nextY + shape.height;
+      for (const { bounds } of this.colliders) {
+        if (!this.overlapsBoundsXZ(candidate, bounds, shape.radius)) continue;
+        const crossesCeiling = currentTop <= bounds.min.y + 0.0001
+          && proposedTop >= bounds.min.y
+          && nextY < bounds.max.y;
+        if (!crossesCeiling) continue;
+        nextY = Math.min(nextY, bounds.min.y - shape.height);
+        hitCeiling = true;
+      }
+    } else if (displacement.y < 0) {
+      for (const { bounds } of this.colliders) {
+        if (!this.overlapsBoundsXZ(candidate, bounds, shape.radius)) continue;
+        const crossesPlatform = currentBottom >= bounds.max.y - 0.0001
+          && nextY <= bounds.max.y
+          && currentTop > bounds.min.y;
+        if (!crossesPlatform) continue;
+        nextY = Math.max(nextY, bounds.max.y);
+        hitGround = true;
+      }
+    }
+
+    if (nextY <= 0) {
+      nextY = 0;
+      hitGround = displacement.y < 0;
+    }
+    candidate.y = nextY;
+    position.copy(candidate);
+    return { position, collidedX, collidedZ, hitGround, hitCeiling };
+  }
+
+  private overlapsBoundsXZ(position: Vector3, bounds: Box3, radius: number): boolean {
+    const closestX = Math.max(bounds.min.x, Math.min(position.x, bounds.max.x));
+    const closestZ = Math.max(bounds.min.z, Math.min(position.z, bounds.max.z));
+    const dx = position.x - closestX;
+    const dz = position.z - closestZ;
+    return dx * dx + dz * dz < radius * radius;
   }
 }

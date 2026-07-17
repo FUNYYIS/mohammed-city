@@ -34,3 +34,16 @@ Desktop browser and responsive viewport checks are simulation only and must not 
 - [ ] Background Safari while controls are pressed, then return; all states return to zero.
 - [ ] Walk and rotate the camera across the plaza; no floor flicker or broken lines.
 - [ ] Repeat the ground test with dynamic shadows enabled and disabled to confirm no shadow artifact.
+
+## Jump and camera regression gate
+
+- [ ] Stationary jump: Mohammed and his shadow visibly separate while the camera follows once.
+- [ ] Jump while walking without losing horizontal motion.
+- [ ] Jump while running without losing horizontal motion.
+- [ ] Jump near a wall without entering or snagging on the collider.
+- [ ] Jump under a low ceiling; the capsule stops at the ceiling and falls naturally.
+- [ ] Ground detection becomes false during ascent and returns only on landing.
+- [ ] Repeated jump presses while airborne do not start another jump.
+- [ ] Landing is visible without camera shake or exaggerated vertical movement.
+- [ ] Rotate the device during/after a jump and confirm world/root Y return together.
+- [ ] Background Safari during/after a jump, return, and confirm no airborne or pressed state remains stuck.

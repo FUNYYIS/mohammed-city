@@ -27,6 +27,7 @@ export class PlayerController {
 
   update(delta: number, input: InputSnapshot, cameraYaw: number): void {
     const safeDelta = Math.min(delta, 1 / 20);
+    const wasGrounded = this.grounded;
     this.crouching = input.crouch;
 
     worldForward.set(Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
@@ -64,7 +65,7 @@ export class PlayerController {
     displacement.copy(this.velocity).multiplyScalar(safeDelta);
     const previousX = this.position.x;
     const previousZ = this.position.z;
-    this.collisionWorld.moveCapsule(
+    const moveResult = this.collisionWorld.moveCapsuleWithResult(
       this.position,
       displacement,
       this.crouching ? this.crouchingShape : this.standingShape,
@@ -73,17 +74,21 @@ export class PlayerController {
     if (Math.abs(this.position.x - previousX) < Math.abs(displacement.x) * 0.2) this.velocity.x = 0;
     if (Math.abs(this.position.z - previousZ) < Math.abs(displacement.z) * 0.2) this.velocity.z = 0;
 
-    if (this.position.y <= 0) {
-      this.position.y = 0;
+    if (moveResult.hitCeiling && this.velocity.y > 0) this.velocity.y = 0;
+    if (moveResult.hitGround || this.position.y <= 0) {
+      if (this.position.y <= 0) this.position.y = 0;
       this.velocity.y = 0;
       this.grounded = true;
+    } else {
+      this.grounded = false;
     }
+    const justLanded = !wasGrounded && this.grounded;
 
     horizontalVelocity.set(this.velocity.x, this.velocity.z);
     this.currentSpeed = horizontalVelocity.length();
     this.view.root.position.copy(this.position);
     this.view.root.rotation.y = this.yaw;
-    this.view.update(safeDelta, Math.min(1, this.currentSpeed / 4.2), this.crouching, this.grounded);
+    this.view.update(safeDelta, Math.min(1, this.currentSpeed / 4.2), this.crouching, this.grounded, justLanded);
   }
 
   getSpeed(): number {

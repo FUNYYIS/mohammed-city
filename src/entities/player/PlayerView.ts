@@ -16,39 +16,43 @@ const shoes = new MeshStandardMaterial({ color: 0xf2e7d8, roughness: 0.8 });
 
 export class PlayerView {
   readonly root = new Group();
+  readonly visualRoot = new Group();
   private readonly leftArm = new Group();
   private readonly rightArm = new Group();
   private readonly leftLeg = new Group();
   private readonly rightLeg = new Group();
   private elapsed = 0;
+  private landingCompression = 0;
 
   constructor() {
     this.root.name = 'temporary-mohammed-character';
-    this.root.scale.setScalar(0.96);
+    this.visualRoot.name = 'temporary-mohammed-visual-offset';
+    this.visualRoot.scale.setScalar(0.96);
+    this.root.add(this.visualRoot);
 
     const torso = new Mesh(new CapsuleGeometry(0.27, 0.42, 5, 10), shirt);
     torso.position.y = 1.16;
     torso.scale.set(1, 1, 0.76);
-    this.root.add(torso);
+    this.visualRoot.add(torso);
 
     const stripe = new Mesh(new CylinderGeometry(0.276, 0.276, 0.08, 14), shirtAccent);
     stripe.position.y = 1.2;
     stripe.scale.z = 0.76;
-    this.root.add(stripe);
+    this.visualRoot.add(stripe);
 
     const neck = new Mesh(new CylinderGeometry(0.1, 0.11, 0.14, 12), skin);
     neck.position.y = 1.51;
-    this.root.add(neck);
+    this.visualRoot.add(neck);
 
     const head = new Mesh(new SphereGeometry(0.25, 18, 14), skin);
     head.position.y = 1.72;
     head.scale.set(0.92, 1.08, 0.94);
-    this.root.add(head);
+    this.visualRoot.add(head);
 
     const hairCap = new Mesh(new SphereGeometry(0.255, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.53), hair);
     hairCap.position.y = 1.77;
     hairCap.scale.set(0.93, 0.68, 0.95);
-    this.root.add(hairCap);
+    this.visualRoot.add(hairCap);
 
     this.addFaceDetail();
     this.makeArm(this.leftArm, -0.32);
@@ -63,16 +67,19 @@ export class PlayerView {
     });
   }
 
-  update(delta: number, speedRatio: number, crouching: boolean, grounded: boolean): void {
+  update(delta: number, speedRatio: number, crouching: boolean, grounded: boolean, justLanded: boolean): void {
     this.elapsed += delta * (3.5 + speedRatio * 7);
+    if (justLanded) this.landingCompression = 1;
+    else this.landingCompression = Math.max(0, this.landingCompression - delta * 7.5);
     const swing = grounded ? Math.sin(this.elapsed) * 0.72 * speedRatio : 0.18;
     this.leftArm.rotation.x = swing;
     this.rightArm.rotation.x = -swing;
     this.leftLeg.rotation.x = -swing;
     this.rightLeg.rotation.x = swing;
-    const targetScaleY = crouching ? 0.72 : 0.96;
-    this.root.scale.y += (targetScaleY - this.root.scale.y) * Math.min(1, delta * 12);
-    this.root.position.y = crouching ? 0.01 : Math.abs(Math.sin(this.elapsed * 2)) * 0.018 * speedRatio;
+    const postureScaleY = crouching ? 0.72 : 0.96;
+    const targetScaleY = postureScaleY * (1 - this.landingCompression * 0.09);
+    this.visualRoot.scale.y += (targetScaleY - this.visualRoot.scale.y) * Math.min(1, delta * 18);
+    this.visualRoot.position.y = crouching ? 0.01 : Math.abs(Math.sin(this.elapsed * 2)) * 0.018 * speedRatio;
   }
 
   private addFaceDetail(): void {
@@ -80,7 +87,7 @@ export class PlayerView {
     for (const x of [-0.085, 0.085]) {
       const eye = new Mesh(new SphereGeometry(0.022, 8, 6), eyeMaterial);
       eye.position.set(x, 1.75, -0.225);
-      this.root.add(eye);
+      this.visualRoot.add(eye);
     }
   }
 
@@ -91,7 +98,7 @@ export class PlayerView {
     const hand = new Mesh(new SphereGeometry(0.075, 10, 8), skin);
     hand.position.y = -0.34;
     group.add(sleeve, hand);
-    this.root.add(group);
+    this.visualRoot.add(group);
   }
 
   private makeLeg(group: Group, x: number): void {
@@ -102,6 +109,6 @@ export class PlayerView {
     shoe.position.set(0, -0.57, -0.04);
     shoe.rotation.x = Math.PI / 2;
     group.add(leg, shoe);
-    this.root.add(group);
+    this.visualRoot.add(group);
   }
 }

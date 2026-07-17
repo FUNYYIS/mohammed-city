@@ -18,7 +18,11 @@ test('starts, moves, jumps, crouches, pauses, and restores landscape play', asyn
 
   await page.keyboard.press('Space');
   await page.waitForTimeout(80);
-  expect((await page.evaluate(() => window.__MC_TEST__?.getState()))!.grounded).toBe(false);
+  const jumping = (await page.evaluate(() => window.__MC_TEST__?.getState()))!;
+  expect(jumping.grounded).toBe(false);
+  expect(jumping.player.y).toBeGreaterThan(0);
+  expect(jumping.playerRootY).toBeCloseTo(jumping.player.y, 4);
+  expect(jumping.visualLocalY).toBeLessThan(0.05);
 
   await page.keyboard.down('KeyC');
   await page.waitForTimeout(50);

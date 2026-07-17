@@ -4,6 +4,9 @@ const target = new Vector3();
 const desired = new Vector3();
 const direction = new Vector3();
 const smoothedTarget = new Vector3();
+const CAMERA_TARGET_HEIGHT = 1.28;
+const HORIZONTAL_FOLLOW_RATE = 14;
+const VERTICAL_FOLLOW_RATE = 5.5;
 
 export type CameraMode = 'outdoor' | 'indoor' | 'stair' | 'vehicle' | 'cinematic';
 
@@ -26,12 +29,19 @@ export class ThirdPersonCamera {
     this.yaw -= cameraDelta.x * 0.0042;
     this.pitch = MathUtils.clamp(this.pitch + cameraDelta.y * 0.0035, -0.12, 0.72);
 
-    target.copy(playerPosition).add(new Vector3(0, 1.28, 0));
+    // playerPosition is the single world-space jump source. No jump offset is
+    // added here; the camera follows that world height exactly once.
+    target.copy(playerPosition);
+    target.y += CAMERA_TARGET_HEIGHT;
     if (!this.initialized) {
       smoothedTarget.copy(target);
       this.initialized = true;
     } else {
-      smoothedTarget.lerp(target, 1 - Math.exp(-delta * 14));
+      const horizontalAlpha = 1 - Math.exp(-delta * HORIZONTAL_FOLLOW_RATE);
+      const verticalAlpha = 1 - Math.exp(-delta * VERTICAL_FOLLOW_RATE);
+      smoothedTarget.x += (target.x - smoothedTarget.x) * horizontalAlpha;
+      smoothedTarget.z += (target.z - smoothedTarget.z) * horizontalAlpha;
+      smoothedTarget.y += (target.y - smoothedTarget.y) * verticalAlpha;
     }
 
     const horizontal = Math.cos(this.pitch) * this.distance;
@@ -58,5 +68,9 @@ export class ThirdPersonCamera {
   resize(width: number, height: number): void {
     this.camera.aspect = width / Math.max(1, height);
     this.camera.updateProjectionMatrix();
+  }
+
+  getSmoothedTarget(out: Vector3): Vector3 {
+    return out.copy(smoothedTarget);
   }
 }
