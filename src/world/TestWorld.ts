@@ -5,7 +5,6 @@ import {
   ConeGeometry,
   CylinderGeometry,
   DirectionalLight,
-  DoubleSide,
   Fog,
   Group,
   HemisphereLight,
@@ -22,6 +21,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { CollisionWorld } from '../physics/CollisionWorld';
+import { WORLD_TOP_SURFACES, type SurfaceMaterialId } from './SurfaceLayout';
 
 const palette = {
   sky: 0x9bc5d2,
@@ -52,7 +52,7 @@ export class TestWorld {
   constructor() {
     this.scene.name = 'phase-one-test-city';
     this.scene.background = new Color(palette.sky);
-    this.scene.fog = new Fog(palette.sky, 58, 130);
+    this.scene.fog = new Fog(palette.sky, 52, 112);
     this.scene.add(this.staticRoot);
     this.addLighting();
     this.addGroundAndRoad();
@@ -84,27 +84,41 @@ export class TestWorld {
     sun.shadow.camera.top = 24;
     sun.shadow.camera.bottom = -24;
     sun.shadow.bias = -0.00035;
+    sun.shadow.normalBias = 0.025;
     this.scene.add(sun);
   }
 
   private addGroundAndRoad(): void {
-    const ground = new Mesh(
-      new PlaneGeometry(120, 120),
-      new MeshStandardMaterial({ color: 0x647d69, roughness: 1 }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    this.staticRoot.add(ground);
+    const surfaceMaterials: Record<SurfaceMaterialId, MeshStandardMaterial> = {
+      grass: new MeshStandardMaterial({ color: 0x647d69, roughness: 1 }),
+      road: new MeshStandardMaterial({ color: palette.road, roughness: 0.96 }),
+      plazaBorder: new MeshStandardMaterial({ color: 0xc7bda9, roughness: 0.98 }),
+      plazaInner: new MeshStandardMaterial({ color: 0xdad1c1, roughness: 0.96 }),
+    };
+    WORLD_TOP_SURFACES.forEach((surface) => {
+      const mesh = this.surface(surface.width, surface.depth, surfaceMaterials[surface.material]);
+      mesh.name = surface.id;
+      mesh.position.set(surface.centerX, 0, surface.centerZ);
+      this.staticRoot.add(mesh);
+    });
 
-    const road = this.plane(80, 10, palette.road, 0.012);
-    road.position.set(4, 0, -4);
-    this.staticRoot.add(road);
-
-    const laneMaterial = new MeshStandardMaterial({ color: 0xf1c567, roughness: 0.86 });
-    const laneGeometry = new BoxGeometry(2.4, 0.025, 0.1);
+    // Painted road markings are the only intentional decal layer. A tiny,
+    // explicit paint separation plus polygon offset prevents mobile z-fighting.
+    const laneMaterial = new MeshStandardMaterial({
+      color: 0xf1c567,
+      roughness: 0.86,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -4,
+      depthWrite: false,
+    });
+    const laneGeometry = new PlaneGeometry(2.4, 0.1);
     for (let x = -31; x <= 39; x += 5.2) {
       const stripe = new Mesh(laneGeometry, laneMaterial);
-      stripe.position.set(x, 0.035, -4);
+      stripe.name = 'road-lane-marking';
+      stripe.rotation.x = -Math.PI / 2;
+      stripe.position.set(x, 0.004, -4);
+      stripe.renderOrder = 2;
       this.staticRoot.add(stripe);
     }
 
@@ -117,13 +131,6 @@ export class TestWorld {
       sidewalk.receiveShadow = true;
       this.staticRoot.add(sidewalk);
     }
-
-    const plaza = this.plane(28, 20, 0xc7bda9, 0.018);
-    plaza.position.set(0, 0, 10);
-    this.staticRoot.add(plaza);
-    const plazaInset = this.plane(23, 15, 0xdad1c1, 0.025);
-    plazaInset.position.set(0, 0, 10);
-    this.staticRoot.add(plazaInset);
   }
 
   private addWarehouseFacade(): void {
@@ -310,10 +317,9 @@ export class TestWorld {
     this.cameraObstacles.push(mesh);
   }
 
-  private plane(width: number, height: number, color: number, y: number): Mesh {
-    const mesh = new Mesh(new PlaneGeometry(width, height), new MeshStandardMaterial({ color, roughness: 0.96, side: DoubleSide }));
+  private surface(width: number, depth: number, material: MeshStandardMaterial): Mesh {
+    const mesh = new Mesh(new PlaneGeometry(width, depth), material);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.y = y;
     mesh.receiveShadow = true;
     return mesh;
   }

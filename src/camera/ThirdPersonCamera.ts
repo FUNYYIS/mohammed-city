@@ -17,7 +17,9 @@ export class ThirdPersonCamera {
   private initialized = false;
 
   constructor(private readonly obstacles: Object3D[]) {
-    this.camera = new PerspectiveCamera(58, 1, 0.08, 170);
+    // A tighter near/far ratio materially improves depth precision on mobile
+    // tile-based GPUs while preserving the whole Phase 1 test scene.
+    this.camera = new PerspectiveCamera(58, 1, 0.18, 140);
   }
 
   update(delta: number, playerPosition: Vector3, cameraDelta: Vector2): void {

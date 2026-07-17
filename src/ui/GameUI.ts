@@ -62,6 +62,7 @@ export class GameUI {
 
         <section class="status-toast" data-status role="status"></section>
         <aside class="debug-hud" data-debug hidden></aside>
+        <aside class="input-debug-overlay" data-input-debug hidden aria-label="تشخيص الإدخال اللمسي"></aside>
       </main>`;
 
     this.menu = this.required('[data-screen="menu"]');

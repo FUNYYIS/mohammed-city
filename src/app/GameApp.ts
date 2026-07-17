@@ -164,9 +164,6 @@ export class GameApp {
     document.addEventListener('contextmenu', (event) => {
       if (event.target === this.canvas) event.preventDefault();
     });
-    document.addEventListener('touchmove', (event) => {
-      if (this.started) event.preventDefault();
-    }, { passive: false });
   }
 
   private updateDebug(delta: number): void {
