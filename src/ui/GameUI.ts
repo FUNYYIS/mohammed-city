@@ -1,0 +1,150 @@
+export class GameUI {
+  readonly root: HTMLElement;
+  private readonly menu: HTMLElement;
+  private readonly hud: HTMLElement;
+  private readonly controls: HTMLElement;
+  private readonly pausePanel: HTMLElement;
+  private readonly rotateOverlay: HTMLElement;
+  private readonly status: HTMLElement;
+  private portrait = false;
+  private playing = false;
+  private paused = false;
+  private onStartHandler: (() => void) | null = null;
+  private onPauseHandler: ((paused: boolean) => void) | null = null;
+
+  constructor(root: HTMLElement) {
+    this.root = root;
+    root.innerHTML = `
+      <main class="game-shell" aria-label="مدينة محمد">
+        <canvas id="game-canvas" aria-label="مشهد مدينة محمد ثلاثي الأبعاد" tabindex="0"></canvas>
+        <section class="menu-screen" data-screen="menu">
+          <div class="menu-atmosphere" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="brand-lockup">
+            <span class="eyebrow">مغامرة جديدة تبدأ من هنا</span>
+            <h1>مدينة <em>محمد</em></h1>
+            <p>MOHAMMED CITY</p>
+          </div>
+          <nav class="menu-actions" aria-label="القائمة الرئيسية">
+            <button class="primary-button" data-menu-action="start"><span class="play-mark">▶</span><b>ابدأ</b><small>ساحة تجربة الحركة</small></button>
+            <button class="menu-button" data-menu-action="continue" disabled><b>متابعة</b><small>لا يوجد حفظ بعد</small></button>
+            <button class="menu-button" data-menu-action="settings" disabled><b>الإعدادات</b><small>قريبًا</small></button>
+          </nav>
+          <div class="phase-chip"><span></span> المرحلة الأولى — نسخة أساس</div>
+        </section>
+
+        <section class="game-hud" data-screen="hud" aria-label="واجهة اللعب">
+          <div class="mission-pill"><span class="mission-index">01</span><div><small>تجربة الأساس</small><strong>تحرّك داخل الساحة واختبر الحواجز</strong></div></div>
+          <div class="compass" aria-label="اتجاه الكاميرا"><span>ش</span><i></i></div>
+          <div class="keyboard-hint">WASD حركة · Shift جري · Space قفز · C انحناء · Esc إيقاف</div>
+        </section>
+
+        <section class="touch-controls" data-screen="controls" aria-label="أدوات التحكم باللمس">
+          <div class="joystick-zone" data-control="joystick" aria-label="عصا الحركة">
+            <div class="joystick-ring"></div><div class="joystick-knob" data-control="joystick-knob"><i></i></div>
+          </div>
+          <div class="action-cluster">
+            <button class="action-button run-button" data-action="run" aria-label="جري"><span>»</span><b>جري</b></button>
+            <button class="action-button crouch-button" data-action="crouch" aria-label="انحناء"><span>⌄</span><b>انحناء</b></button>
+            <button class="action-button jump-button" data-action="jump" aria-label="قفز"><span>↑</span><b>قفز</b></button>
+          </div>
+          <div class="camera-hint" aria-hidden="true"><i></i> اسحب لتحريك الكاميرا</div>
+        </section>
+
+        <section class="pause-panel" data-screen="pause" role="dialog" aria-label="اللعبة متوقفة">
+          <div><span class="eyebrow">استراحة قصيرة</span><h2>اللعبة متوقفة</h2><p>تقدمك في ساحة التجربة ما زال محفوظًا في الجلسة.</p><button class="primary-button compact" data-menu-action="resume"><b>متابعة اللعب</b></button></div>
+        </section>
+
+        <section class="rotate-overlay" data-screen="rotate" role="alert">
+          <div class="phone-rotate" aria-hidden="true"><i></i><span>↻</span></div>
+          <h2>لف الجهاز عشان تلعب</h2>
+          <p>مدينة محمد مصممة للوضع الأفقي</p>
+        </section>
+
+        <section class="status-toast" data-status role="status"></section>
+        <aside class="debug-hud" data-debug hidden></aside>
+      </main>`;
+
+    this.menu = this.required('[data-screen="menu"]');
+    this.hud = this.required('[data-screen="hud"]');
+    this.controls = this.required('[data-screen="controls"]');
+    this.pausePanel = this.required('[data-screen="pause"]');
+    this.rotateOverlay = this.required('[data-screen="rotate"]');
+    this.status = this.required('[data-status]');
+    this.bindMenu();
+    this.updateOrientation();
+    window.addEventListener('resize', () => this.updateOrientation(), { passive: true });
+    window.visualViewport?.addEventListener('resize', () => this.updateOrientation(), { passive: true });
+  }
+
+  onStart(handler: () => void): void {
+    this.onStartHandler = handler;
+  }
+
+  onPauseChange(handler: (paused: boolean) => void): void {
+    this.onPauseHandler = handler;
+  }
+
+  startGame(): void {
+    this.playing = true;
+    this.paused = false;
+    this.menu.classList.add('is-hidden');
+    this.pausePanel.classList.remove('is-visible');
+    this.refreshGameplayLayers();
+  }
+
+  togglePause(force?: boolean): void {
+    if (!this.playing || this.portrait) return;
+    this.paused = force ?? !this.paused;
+    this.pausePanel.classList.toggle('is-visible', this.paused);
+    this.refreshGameplayLayers();
+    this.onPauseHandler?.(this.paused);
+  }
+
+  isPortrait(): boolean {
+    return this.portrait;
+  }
+
+  isPaused(): boolean {
+    return this.paused;
+  }
+
+  showStatus(message: string): void {
+    this.status.textContent = message;
+    this.status.classList.add('is-visible');
+    window.setTimeout(() => this.status.classList.remove('is-visible'), 3200);
+  }
+
+  updateDebug(html: string): void {
+    const debug = this.required('[data-debug]');
+    debug.hidden = false;
+    debug.innerHTML = html;
+  }
+
+  private bindMenu(): void {
+    this.root.querySelector('[data-menu-action="start"]')?.addEventListener('click', () => this.onStartHandler?.());
+    this.root.querySelector('[data-menu-action="resume"]')?.addEventListener('click', () => this.togglePause(false));
+    window.addEventListener('keydown', (event) => {
+      if (event.code === 'Escape') this.togglePause();
+    });
+  }
+
+  private updateOrientation(): void {
+    const nextPortrait = window.innerHeight > window.innerWidth;
+    if (nextPortrait === this.portrait) return;
+    this.portrait = nextPortrait;
+    this.rotateOverlay.classList.toggle('is-visible', this.portrait);
+    this.refreshGameplayLayers();
+  }
+
+  private refreshGameplayLayers(): void {
+    const show = this.playing && !this.paused && !this.portrait;
+    this.hud.classList.toggle('is-visible', show);
+    this.controls.classList.toggle('is-visible', show);
+  }
+
+  private required<T extends HTMLElement = HTMLElement>(selector: string): T {
+    const element = this.root.querySelector<T>(selector);
+    if (!element) throw new Error(`Missing UI element: ${selector}`);
+    return element;
+  }
+}
