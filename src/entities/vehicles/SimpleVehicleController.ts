@@ -63,7 +63,10 @@ export class SimpleVehicleController {
 
     const speedRatio = Math.min(1, Math.abs(this.speed) / 5.5);
     if (speedRatio > 0.025) {
-      this.yaw += steering * Math.sign(this.speed) * speedRatio * 1.65 * delta;
+      // At the mission start the chase camera looks toward +Z, where screen
+      // right is world -X. Subtracting steering keeps the wheel and car motion
+      // aligned with the joystick instead of mirroring left/right.
+      this.yaw -= steering * Math.sign(this.speed) * speedRatio * 1.65 * delta;
     }
 
     proposedPosition.copy(this.position);

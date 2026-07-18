@@ -32,9 +32,9 @@ describe('MissionOneDirector vertical slice', () => {
     expect(director.updateZones(world.garageGoal, true).completed).toBe(false);
 
     interactAt(director, new Vector3(-5.8, 0, -5.1), Math.PI / 2);
-    interactAt(director, new Vector3(-5.8, 0, -5.8), Math.PI / 2);
+    interactAt(director, new Vector3(-5.8, 0, -6.15), Math.PI / 2);
     interactAt(director, new Vector3(-5.8, 0, -5.1), Math.PI / 2);
-    interactAt(director, new Vector3(-5.8, 0, -4.4), Math.PI / 2);
+    interactAt(director, new Vector3(-5.8, 0, -4.05), Math.PI / 2);
     expect(director.runtime.getCurrentObjective()?.id).toBe('start-generator');
 
     interactAt(director, new Vector3(3.2, 0, -9.2), -Math.PI / 2);
@@ -60,9 +60,9 @@ describe('MissionOneDirector vertical slice', () => {
   it('resets the visible breaker state after a wrong order', () => {
     const { world, director } = setup();
     interactAt(director, new Vector3(-5.8, 0, -5.1), Math.PI / 2);
-    interactAt(director, new Vector3(-5.8, 0, -5.8), Math.PI / 2);
+    interactAt(director, new Vector3(-5.8, 0, -6.15), Math.PI / 2);
 
-    director.updateInteraction(new Vector3(-5.8, 0, -4.4), Math.PI / 2);
+    director.updateInteraction(new Vector3(-5.8, 0, -4.05), Math.PI / 2);
     const feedback = director.interact();
     expect(feedback.message).toContain('الترتيب غلط');
     expect(director.runtime.getProgress().sequenceIndex).toBe(0);

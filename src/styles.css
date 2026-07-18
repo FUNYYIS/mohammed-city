@@ -78,7 +78,7 @@ button { font: inherit; color: inherit; }
 .run-button { left: 2%; bottom: 2%; }
 .crouch-button { left: 27%; top: 0; }
 .context-action-cluster { position: absolute; right: max(26px, calc(env(safe-area-inset-right) + 20px)); bottom: max(190px, calc(env(safe-area-inset-bottom) + 156px)); display: grid; gap: 8px; pointer-events: none; }
-.context-action-button { width: clamp(58px, 8vw, 70px); height: clamp(58px, 8vw, 70px); display: grid; place-items: center; border: 1px solid rgba(255,255,255,.24); border-radius: 50%; color: white; background: rgba(8,34,49,.82); box-shadow: 0 8px 20px rgba(0,0,0,.22); pointer-events: auto; touch-action: none; transition: transform .05s ease, background .12s ease, opacity .12s ease; }
+.context-action-button { width: clamp(64px, 8.5vw, 76px); height: clamp(64px, 8.5vw, 76px); display: grid; place-items: center; border: 1px solid rgba(255,255,255,.24); border-radius: 50%; color: white; background: rgba(8,34,49,.82); box-shadow: 0 8px 20px rgba(0,0,0,.22); pointer-events: auto; touch-action: none; transition: transform .05s ease, background .12s ease, opacity .12s ease; }
 .context-action-button span { color: var(--amber); font: 900 17px/1 system-ui; direction: ltr; }
 .context-action-button b { font-size: 9px; }
 .context-action-button.is-pressed { transform: scale(.9); }
@@ -87,10 +87,10 @@ button { font: inherit; color: inherit; }
 .camera-hint { position: absolute; right: max(28px, calc(env(safe-area-inset-right) + 20px)); top: 48%; display: flex; align-items: center; gap: 7px; direction: rtl; color: rgba(255,255,255,.46); font-size: 9px; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
 .camera-hint i { width: 22px; height: 14px; border-radius: 8px; border: 1px solid currentColor; }
 
-.interaction-prompt { position: absolute; z-index: 34; left: 50%; bottom: max(54px, calc(env(safe-area-inset-bottom) + 42px)); transform: translateX(-50%); display: flex; align-items: center; gap: 9px; padding: 8px 13px; border: 1px solid rgba(255,255,255,.16); border-radius: 12px; color: var(--cream); background: rgba(5,24,37,.84); backdrop-filter: blur(10px); pointer-events: none; }
+.interaction-prompt { position: absolute; z-index: 34; left: 50%; bottom: max(54px, calc(env(safe-area-inset-bottom) + 42px)); transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 15px; border: 1px solid rgba(255,255,255,.16); border-radius: 13px; color: var(--cream); background: rgba(5,24,37,.84); backdrop-filter: blur(10px); pointer-events: none; }
 .interaction-prompt[hidden] { display: none; }
-.interaction-prompt kbd { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 7px; color: var(--ink); background: var(--amber); font: 900 12px/1 system-ui; direction: ltr; }
-.interaction-prompt strong { font-size: 11px; }
+.interaction-prompt kbd { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 8px; color: var(--ink); background: var(--amber); font: 900 13px/1 system-ui; direction: ltr; }
+.interaction-prompt strong { font-size: 12px; }
 
 .pause-panel, .rotate-overlay, .mission-complete-panel { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; padding: 26px; background: rgba(4, 17, 27, .82); backdrop-filter: blur(16px); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .22s ease, visibility .22s ease; }
 .pause-panel.is-visible, .rotate-overlay.is-visible, .mission-complete-panel.is-visible { opacity: 1; visibility: visible; pointer-events: auto; }

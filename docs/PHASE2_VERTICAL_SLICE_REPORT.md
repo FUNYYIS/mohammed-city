@@ -33,7 +33,7 @@ Safari acceptance is pending**.
 ## Acceptance evidence
 
 - `npm run build`: passed.
-- Unit tests: 53/53 passed across 11 files.
+- Unit tests: 54/54 passed across 11 files.
 - Project audit: 21/21 passed.
 - Browser E2E: 2/2 passed.
 - The second E2E runs the complete ordered mission, drives to the garage, checks
@@ -42,8 +42,19 @@ Safari acceptance is pending**.
 - Warehouse start sample: 81 draw calls, 22,888 triangles, 1 texture.
 - A dedicated layout test rejects coplanar area overlap between the warehouse,
   street, garage, and grass surfaces.
-- Screenshots: `artifacts/screenshots/phase2-warehouse.png` and
+- Screenshots: `artifacts/screenshots/phase2-warehouse.png`,
+  `artifacts/screenshots/phase2-power-panel.png`, and
   `artifacts/screenshots/phase2-mission-complete.png`.
+
+## iPhone readability refinement
+
+- Corrected the vehicle steering sign so joystick right/left matches the chase
+  camera view in forward and reverse.
+- Increased breaker spacing from 0.7 m to 1.05 m.
+- Slightly enlarged the panel, breakers, generator, door control, interaction
+  prompt, touch context buttons, and mission markers.
+- Added persistent blue, red, and yellow breaker plates so the required order is
+  visible before any switch is activated.
 
 ## Remaining device checks
 

@@ -79,14 +79,18 @@ test('completes mission one in order, drives to the garage, and resets cleanly',
   };
 
   await teleport(-5.8, -5.1, Math.PI / 2);
+  await page.evaluate(() => window.__MC_TEST__?.setCameraYaw(Math.PI / 2));
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: 'artifacts/screenshots/phase2-power-panel.png' });
   await interact();
+  await page.evaluate(() => window.__MC_TEST__?.setCameraYaw(Math.PI));
   expect((await page.evaluate(() => window.__MC_TEST__?.getState()))!.missionObjective).toBe('power-sequence');
 
-  await teleport(-5.8, -5.8, Math.PI / 2);
+  await teleport(-5.8, -6.15, Math.PI / 2);
   await interact();
   await teleport(-5.8, -5.1, Math.PI / 2);
   await interact();
-  await teleport(-5.8, -4.4, Math.PI / 2);
+  await teleport(-5.8, -4.05, Math.PI / 2);
   await interact();
   expect((await page.evaluate(() => window.__MC_TEST__?.getState()))!.missionObjective).toBe('start-generator');
 

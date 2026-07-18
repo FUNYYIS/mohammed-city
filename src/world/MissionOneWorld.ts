@@ -309,8 +309,8 @@ export class MissionOneWorld {
   }
 
   private addPowerPuzzle(): void {
-    const panel = new Mesh(new RoundedBoxGeometry(0.28, 2.2, 2.8, 3, 0.09), new MeshStandardMaterial({ color: 0x52636a, metalness: 0.28, roughness: 0.55 }));
-    panel.position.set(-7.72, 1.55, -5.1);
+    const panel = new Mesh(new RoundedBoxGeometry(0.34, 2.45, 3.45, 3, 0.1), new MeshStandardMaterial({ color: 0x52636a, metalness: 0.28, roughness: 0.55 }));
+    panel.position.set(-7.72, 1.68, -5.1);
     panel.castShadow = true;
     this.root.add(panel);
 
@@ -322,30 +322,36 @@ export class MissionOneWorld {
     Object.entries(colors).forEach(([id, color], index) => {
       const material = new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, roughness: 0.54 });
       this.breakerMaterials.set(id, material);
-      const lever = new Mesh(new RoundedBoxGeometry(0.24, 0.18, 0.42, 2, 0.04), this.breakerOff);
+      const z = -6.15 + index * 1.05;
+      const colorPlate = new Mesh(
+        new RoundedBoxGeometry(0.16, 0.5, 0.8, 2, 0.05),
+        new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.16, roughness: 0.62 }),
+      );
+      colorPlate.position.set(-7.51, 1.8, z);
+      const lever = new Mesh(new RoundedBoxGeometry(0.34, 0.24, 0.56, 2, 0.05), this.breakerOff);
       lever.name = id;
-      lever.position.set(-7.5, 1.72, -5.8 + index * 0.7);
+      lever.position.set(-7.42, 1.8, z);
       lever.rotation.z = 0.72;
       this.breakerLevers.set(id, lever);
-      this.root.add(lever);
+      this.root.add(colorPlate, lever);
     });
 
     const generator = new Group();
-    const body = new Mesh(new RoundedBoxGeometry(2.2, 1.45, 1.8, 3, 0.16), new MeshStandardMaterial({ color: palette.coral, roughness: 0.75 }));
-    body.position.y = 0.72;
-    const top = new Mesh(new RoundedBoxGeometry(1.65, 0.45, 1.2, 3, 0.12), new MeshStandardMaterial({ color: palette.navy, metalness: 0.18, roughness: 0.58 }));
-    top.position.y = 1.45;
-    const indicator = new Mesh(new CylinderGeometry(0.12, 0.12, 0.08, 12), this.generatorIndicator);
-    indicator.position.set(0.55, 1.72, 0.25);
+    const body = new Mesh(new RoundedBoxGeometry(2.55, 1.7, 2.1, 3, 0.17), new MeshStandardMaterial({ color: palette.coral, roughness: 0.75 }));
+    body.position.y = 0.85;
+    const top = new Mesh(new RoundedBoxGeometry(1.9, 0.5, 1.45, 3, 0.13), new MeshStandardMaterial({ color: palette.navy, metalness: 0.18, roughness: 0.58 }));
+    top.position.y = 1.68;
+    const indicator = new Mesh(new CylinderGeometry(0.15, 0.15, 0.1, 12), this.generatorIndicator);
+    indicator.position.set(0.62, 1.98, 0.3);
     indicator.rotation.z = Math.PI / 2;
     generator.add(body, top, indicator);
     generator.position.set(5.7, 0, -9.2);
     generator.traverse((object) => { if (object instanceof Mesh) object.castShadow = true; });
     this.root.add(generator);
-    this.collisions.addBox('generator-body', new Vector3(5.7, 0.85, -9.2), new Vector3(2.35, 1.7, 1.95));
+    this.collisions.addBox('generator-body', new Vector3(5.7, 1, -9.2), new Vector3(2.7, 2, 2.3));
 
-    const doorControl = new Mesh(new RoundedBoxGeometry(0.35, 0.9, 0.55, 2, 0.07), new MeshStandardMaterial({ color: palette.teal, emissive: 0x17484c, emissiveIntensity: 0.35 }));
-    doorControl.position.set(2.75, 1.2, 4.05);
+    const doorControl = new Mesh(new RoundedBoxGeometry(0.48, 1.1, 0.7, 2, 0.08), new MeshStandardMaterial({ color: palette.teal, emissive: 0x17484c, emissiveIntensity: 0.35 }));
+    doorControl.position.set(2.75, 1.3, 4.02);
     this.root.add(doorControl);
   }
 
@@ -442,33 +448,33 @@ export class MissionOneWorld {
 
   private createInteractables(): Readonly<Record<string, InteractableDefinition>> {
     return {
-      'power-panel': { id: 'power-panel', label: 'افحص لوحة الكهرباء', position: new Vector3(-7.25, 1.45, -5.1), priority: 2 },
-      'breaker-blue': { id: 'breaker-blue', label: 'شغّل القاطع الأزرق', position: new Vector3(-7.24, 1.72, -5.8), priority: 3 },
-      'breaker-red': { id: 'breaker-red', label: 'شغّل القاطع الأحمر', position: new Vector3(-7.24, 1.72, -5.1), priority: 3 },
-      'breaker-yellow': { id: 'breaker-yellow', label: 'شغّل القاطع الأصفر', position: new Vector3(-7.24, 1.72, -4.4), priority: 3 },
-      generator: { id: 'generator', label: 'شغّل المولد', position: new Vector3(4.45, 1.15, -9.2), priority: 2, lineOfSightIgnore: ['generator-body'] },
-      'door-control': { id: 'door-control', label: 'افتح الباب الرئيسي', position: new Vector3(2.75, 1.2, 4.05), priority: 2 },
+      'power-panel': { id: 'power-panel', label: 'افحص لوحة الكهرباء', position: new Vector3(-7.18, 1.55, -5.1), priority: 2 },
+      'breaker-blue': { id: 'breaker-blue', label: 'شغّل القاطع الأزرق', position: new Vector3(-7.18, 1.8, -6.15), priority: 3 },
+      'breaker-red': { id: 'breaker-red', label: 'شغّل القاطع الأحمر', position: new Vector3(-7.18, 1.8, -5.1), priority: 3 },
+      'breaker-yellow': { id: 'breaker-yellow', label: 'شغّل القاطع الأصفر', position: new Vector3(-7.18, 1.8, -4.05), priority: 3 },
+      generator: { id: 'generator', label: 'شغّل المولد', position: new Vector3(4.15, 1.3, -9.2), priority: 2, lineOfSightIgnore: ['generator-body'] },
+      'door-control': { id: 'door-control', label: 'افتح الباب الرئيسي', position: new Vector3(2.75, 1.3, 4.02), priority: 2 },
     };
   }
 
   private createMissionMarkers(): void {
     const positions: Record<string, Vector3> = {
       'power-panel': new Vector3(-6.9, 2.8, -5.1),
-      'breaker-blue': new Vector3(-6.9, 2.65, -5.8),
-      'breaker-red': new Vector3(-6.9, 2.65, -5.1),
-      'breaker-yellow': new Vector3(-6.9, 2.65, -4.4),
-      generator: new Vector3(4.5, 2.8, -9.2),
-      'door-control': new Vector3(2.75, 2.5, 4.0),
+      'breaker-blue': new Vector3(-6.85, 2.85, -6.15),
+      'breaker-red': new Vector3(-6.85, 2.85, -5.1),
+      'breaker-yellow': new Vector3(-6.85, 2.85, -4.05),
+      generator: new Vector3(4.2, 3.05, -9.2),
+      'door-control': new Vector3(2.75, 2.75, 4.0),
       'warehouse-exit': new Vector3(0, 2.1, 6.4),
       'mission-car': new Vector3(0, 2.6, 10.2),
       'garage-goal': new Vector3(0, 2.6, 41.2),
     };
     Object.entries(positions).forEach(([id, position]) => {
       const marker = new Group();
-      const ring = new Mesh(new TorusGeometry(0.28, 0.06, 8, 18), new MeshStandardMaterial({ color: palette.amber, emissive: 0xc87921, emissiveIntensity: 0.72 }));
+      const ring = new Mesh(new TorusGeometry(0.36, 0.075, 8, 18), new MeshStandardMaterial({ color: palette.amber, emissive: 0xc87921, emissiveIntensity: 0.72 }));
       ring.rotation.x = Math.PI / 2;
-      const pointer = new Mesh(new ConeGeometry(0.13, 0.32, 8), ring.material);
-      pointer.position.y = -0.42;
+      const pointer = new Mesh(new ConeGeometry(0.16, 0.4, 8), ring.material);
+      pointer.position.y = -0.52;
       pointer.rotation.x = Math.PI;
       marker.add(ring, pointer);
       marker.position.copy(position);

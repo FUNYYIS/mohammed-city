@@ -43,6 +43,21 @@ describe('SimpleVehicleController', () => {
     expect(world.getAll().find((item) => item.id === 'wall')?.bounds.containsPoint(car.position)).toBe(false);
   });
 
+  it('steers screen-right and screen-left without mirroring the joystick', () => {
+    for (const steering of [1, -1]) {
+      const world = new CollisionWorld();
+      const car = new SimpleVehicleController(world, new Vector3());
+      car.enter();
+      for (let frame = 0; frame < 36; frame += 1) {
+        car.update(1 / 60, input(new Vector2(steering, 1)));
+      }
+
+      // With the chase camera behind +Z travel, screen-right is world -X.
+      expect(car.yaw * steering).toBeLessThan(0);
+      expect(car.position.x * steering).toBeLessThan(0);
+    }
+  });
+
   it('finds a safe side exit and never returns a blocked candidate', () => {
     const world = new CollisionWorld();
     const car = new SimpleVehicleController(world, new Vector3());
