@@ -1,7 +1,8 @@
 # Mission design
 
 The ten missions are defined by the supplied design brief. Only Mission 1 is
-implemented in the Phase 2 vertical slice.
+implemented. Phase 3 opens the core city as free roam after Mission 1; it does
+not claim that Mission 2 has started.
 
 Phase 2 starts with Mission 1, **الهروب من المستودع**, as the only vertical slice. Its required ordered state is:
 

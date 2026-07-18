@@ -66,4 +66,20 @@ describe('MissionRuntime', () => {
     expect(restored.getCurrentObjective()?.id).toBe('discover-panel');
     expect(restored.getProgress().sequenceIndex).toBe(0);
   });
+
+  it('keeps completed progress resumable so the unlocked city survives reload', () => {
+    const storage = new MemoryStorage();
+    const runtime = new MissionRuntime(MISSION_ONE, storage);
+    runtime.startNew();
+    [
+      'panel-discovered',
+      'breaker-blue', 'breaker-red', 'breaker-yellow',
+      'generator-started', 'door-opened', 'warehouse-exited',
+      'vehicle-entered', 'garage-reached',
+    ].forEach((event) => runtime.applyEvent(event));
+
+    const restored = new MissionRuntime(MISSION_ONE, storage);
+    expect(restored.hasSavedProgress()).toBe(true);
+    expect(restored.getProgress().completed).toBe(true);
+  });
 });

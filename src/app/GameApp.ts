@@ -12,7 +12,7 @@ import { InputManager } from '../controls/InputManager';
 import { SimpleVehicleController } from '../entities/vehicles/SimpleVehicleController';
 import { PlayerController } from '../entities/player/PlayerController';
 import type { CharacterRenderMetrics } from '../entities/player/CharacterVisual';
-import { InteractionSystem } from '../interactions/InteractionSystem';
+import { InteractionSystem, type InteractableDefinition } from '../interactions/InteractionSystem';
 import { MISSION_ONE } from '../missions/definitions/missionOne';
 import { MissionOneDirector, type MissionFeedback } from '../missions/runtime/MissionOneDirector';
 import { MissionRuntime } from '../missions/runtime/MissionRuntime';
@@ -46,10 +46,17 @@ declare global {
         characterTriangles: number;
         drawCalls: number;
         triangles: number;
+        freeRoam: boolean;
+        cityLocation: string;
+        activeZones: string[];
+        zoneStates: Readonly<Record<string, string>>;
+        activeNPCs: number;
+        insideInterior: boolean;
       };
       teleportPlayer: (x: number, y: number, z: number, yaw?: number) => void;
       setCameraYaw: (yaw: number) => void;
       resetMission: () => void;
+      enterCity: () => void;
     };
   }
 }
@@ -65,9 +72,11 @@ export class GameApp {
   private readonly input: InputManager;
   private readonly missionRuntime: MissionRuntime;
   private readonly missionDirector: MissionOneDirector;
+  private readonly interactionSystem: InteractionSystem;
   private readonly characterMetrics: CharacterRenderMetrics;
   private readonly clock = new Clock(false);
   private started = false;
+  private freeRoam = false;
   private appPaused = false;
   private frameRequest = 0;
   private debugElapsed = 0;
@@ -75,6 +84,7 @@ export class GameApp {
   private debugFps = 0;
   private readonly frameTimes: number[] = [];
   private longTasks = 0;
+  private activeCityInteraction: InteractableDefinition | null = null;
   private readonly zeroCameraDelta = new Vector2();
   private readonly debugCameraTarget = new Vector3();
   private readonly cameraFollowTarget = new Vector3();
@@ -116,10 +126,11 @@ export class GameApp {
     this.vehicle = new SimpleVehicleController(collisions, this.world.vehicleSpawn);
     this.world.scene.add(this.vehicle.root);
     this.missionRuntime = new MissionRuntime(MISSION_ONE, new BrowserMissionStorage());
+    this.interactionSystem = new InteractionSystem(collisions);
     this.missionDirector = new MissionOneDirector(
       this.missionRuntime,
       this.world,
-      new InteractionSystem(collisions),
+      this.interactionSystem,
     );
     this.cameraRig = new ThirdPersonCamera(cameraObstacles);
     this.cameraRig.yaw = Math.PI;
@@ -134,6 +145,7 @@ export class GameApp {
     this.ui.setContinueAvailable(this.missionRuntime.hasSavedProgress());
     this.ui.onStart((resume) => this.start(resume));
     this.ui.onReset(() => this.resetMission());
+    this.ui.onExploreCity(() => this.enterCityExploration());
     this.ui.onPauseChange((paused) => {
       this.appPaused = paused;
       if (!paused) this.clock.start();
@@ -150,6 +162,7 @@ export class GameApp {
   start(resume = false): void {
     if (this.started) return;
     this.started = true;
+    this.freeRoam = false;
     this.appPaused = false;
     const progress = resume ? this.missionDirector.resume() : this.missionDirector.startNew();
     this.vehicle.reset();
@@ -161,6 +174,12 @@ export class GameApp {
     this.input.reset();
     this.ui.startGame();
     this.syncMissionUI();
+    if (progress.completed) {
+      this.canvas.focus({ preventScroll: true });
+      this.unlockAudioContext();
+      this.enterCityExploration();
+      return;
+    }
     this.clock.start();
     this.canvas.focus({ preventScroll: true });
     this.unlockAudioContext();
@@ -195,17 +214,34 @@ export class GameApp {
     } else {
       this.vehicle.update(delta, input);
       this.player.update(delta, input, this.cameraRig.yaw);
-      const interaction = this.missionDirector.updateInteraction(this.player.position, this.player.yaw);
+      const interaction = this.freeRoam
+        ? this.updateCityInteraction()
+        : this.missionDirector.updateInteraction(this.player.position, this.player.yaw);
       this.ui.setInteractionPrompt(interaction?.label ?? null);
-      if (input.interactPressed) this.handleMissionFeedback(this.missionDirector.interact());
+      if (input.interactPressed) {
+        if (this.freeRoam) this.interactWithCity();
+        else this.handleMissionFeedback(this.missionDirector.interact());
+      }
 
-      const canEnter = this.missionDirector.canUseVehicle() && this.vehicle.canEnter(this.player.position);
+      const canEnter = (this.freeRoam || this.missionDirector.canUseVehicle())
+        && this.vehicle.canEnter(this.player.position);
       this.ui.setVehicleAction(canEnter ? 'اركب' : null);
       if (input.vehiclePressed && canEnter) this.enterVehicle();
     }
 
     const navigationPosition = this.vehicle.occupied ? this.vehicle.position : this.player.position;
-    this.handleMissionFeedback(this.missionDirector.updateZones(navigationPosition, this.vehicle.occupied));
+    const cityUpdate = this.world.updateCityStreaming(delta, navigationPosition, this.player.position);
+    if (this.freeRoam && cityUpdate.enteredLocation) {
+      this.ui.showStatus(`وصلت: ${cityUpdate.enteredLocation}`);
+      this.ui.updateMission('استكشاف المدينة', cityUpdate.enteredLocation, 'مدينة');
+    }
+    if (!this.freeRoam) {
+      this.handleMissionFeedback(this.missionDirector.updateZones(navigationPosition, this.vehicle.occupied));
+    } else if (!this.vehicle.occupied) {
+      const indoor = this.world.city.isInsideInterior(this.player.position);
+      this.cameraRig.mode = indoor ? 'indoor' : 'outdoor';
+      this.cameraRig.distance = indoor ? 4.15 : 5.5;
+    }
     this.getCameraFollowTarget();
     this.cameraRig.update(delta, this.cameraFollowTarget, input.cameraDelta);
     this.renderer.render(this.world.scene, this.cameraRig.camera);
@@ -231,7 +267,9 @@ export class GameApp {
     window.addEventListener('resize', () => this.resize(), { passive: true });
     window.visualViewport?.addEventListener('resize', () => this.resize(), { passive: true });
     document.addEventListener('visibilitychange', () => {
-      this.appPaused = document.hidden || this.ui.isPaused() || this.missionRuntime.getProgress().completed;
+      this.appPaused = document.hidden
+        || this.ui.isPaused()
+        || (this.missionRuntime.getProgress().completed && !this.freeRoam);
       if (!this.appPaused && this.started) this.clock.start();
     });
     this.canvas.addEventListener('webglcontextlost', (event) => {
@@ -283,8 +321,8 @@ export class GameApp {
       `Draw calls: ${info.render.calls}`,
       `Triangles: ${info.render.triangles.toLocaleString('en')}`,
       `Textures: ${info.memory.textures}`,
-      'NPCs: 0',
-      'Zones: warehouse / street / garage',
+      `NPCs: ${this.world.getActiveNPCCount()}`,
+      `Zones: ${this.world.getActiveCityZoneIds().join(' / ') || 'base only'}`,
       `Geometry: ${info.memory.geometries}`,
       'Memory: browser N/A',
       `Long tasks: ${this.longTasks}`,
@@ -337,6 +375,14 @@ export class GameApp {
           characterTriangles: this.characterMetrics.triangles,
           drawCalls: this.renderer.info.render.calls,
           triangles: this.renderer.info.render.triangles,
+          freeRoam: this.freeRoam,
+          cityLocation: this.world.city.getLocationLabel(
+            this.vehicle.occupied ? this.vehicle.position : this.player.position,
+          ),
+          activeZones: this.world.getActiveCityZoneIds(),
+          zoneStates: this.world.getCityZoneStates(),
+          activeNPCs: this.world.getActiveNPCCount(),
+          insideInterior: this.world.city.isInsideInterior(this.player.position),
         };
       },
       teleportPlayer: (x, y, z, yaw = this.player.yaw) => {
@@ -348,6 +394,7 @@ export class GameApp {
       },
       setCameraYaw: (yaw) => { this.cameraRig.reset(yaw); },
       resetMission: () => this.resetMission(),
+      enterCity: () => this.enterCityExploration(),
     };
   }
 
@@ -362,7 +409,7 @@ export class GameApp {
     this.player.view.root.visible = false;
     this.cameraRig.mode = 'vehicle';
     this.cameraRig.distance = 7;
-    this.handleMissionFeedback(this.missionDirector.vehicleEntered());
+    if (!this.freeRoam) this.handleMissionFeedback(this.missionDirector.vehicleEntered());
     this.ui.setVehicleAction('اخرج');
   }
 
@@ -397,6 +444,8 @@ export class GameApp {
   }
 
   private resetMission(): void {
+    this.freeRoam = false;
+    this.activeCityInteraction = null;
     const progress = this.missionDirector.reset();
     this.vehicle.reset();
     this.player.teleport(this.world.getSpawnForProgress(progress), Math.PI);
@@ -413,5 +462,41 @@ export class GameApp {
     this.syncMissionUI();
     this.clock.start();
     this.ui.showStatus('رجعت المهمة من البداية');
+  }
+
+  private enterCityExploration(): void {
+    if (!this.started || !this.missionRuntime.getProgress().completed) return;
+    if (this.vehicle.occupied) this.vehicle.exit();
+    this.freeRoam = true;
+    this.appPaused = false;
+    this.activeCityInteraction = null;
+    const cityEntryYaw = -Math.PI / 2;
+    this.player.teleport(this.world.city.cityStartPoint, cityEntryYaw);
+    this.player.view.root.visible = true;
+    this.cameraRig.mode = 'outdoor';
+    this.cameraRig.distance = 5.5;
+    this.cameraRig.reset(cityEntryYaw);
+    this.input.reset();
+    this.ui.enterCityExploration();
+    this.ui.setInteractionPrompt(null);
+    this.ui.setVehicleAction(null);
+    this.ui.updateMission('استكشاف المدينة', 'اختر طريقك: حي محمد أو الشارع التجاري', 'مدينة');
+    this.ui.showStatus('انفتحت المدينة الأساسية — استكشفها براحتك');
+    this.clock.start();
+  }
+
+  private updateCityInteraction(): InteractableDefinition | null {
+    this.activeCityInteraction = this.interactionSystem.findBest(
+      this.player.position,
+      this.player.yaw,
+      this.world.city.getInteractables(),
+    );
+    return this.activeCityInteraction;
+  }
+
+  private interactWithCity(): void {
+    if (!this.activeCityInteraction) return;
+    const message = this.world.city.interact(this.activeCityInteraction.id);
+    if (message) this.ui.showStatus(message);
   }
 }

@@ -57,7 +57,7 @@ test('starts, moves, jumps, crouches, pauses, and restores landscape play', asyn
   expect(consoleErrors).toEqual([]);
 });
 
-test('completes mission one in order, drives to the garage, and resets cleanly', async ({ page }) => {
+test('completes mission one, enters the streamed city, walks through both new interiors, and resets', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('pageerror', (error) => consoleErrors.push(error.message));
@@ -126,7 +126,47 @@ test('completes mission one in order, drives to the garage, and resets cleanly',
   expect((await page.evaluate(() => window.__MC_TEST__?.getState()))!.missionCompleted).toBe(true);
   await page.screenshot({ path: 'artifacts/screenshots/phase2-mission-complete.png' });
 
-  await page.getByRole('button', { name: 'إعادة المهمة', exact: true }).click();
+  await page.getByRole('button', { name: 'ادخل المدينة', exact: true }).click();
+  await expect.poll(
+    async () => (await page.evaluate(() => window.__MC_TEST__?.getState()))!.freeRoam,
+  ).toBe(true);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: 'artifacts/screenshots/phase3-city-intersection.png' });
+
+  await teleport(-34, 23.5, 0);
+  await page.evaluate(() => window.__MC_TEST__?.setCameraYaw(0));
+  await expect(page.getByText('افتح الباب', { exact: true })).toBeVisible();
+  await page.screenshot({ path: 'artifacts/screenshots/phase3-mohammed-home.png' });
+  await interact();
+  await page.waitForTimeout(600);
+  await page.keyboard.down('KeyW');
+  await page.waitForTimeout(900);
+  await page.keyboard.up('KeyW');
+  expect((await page.evaluate(() => window.__MC_TEST__?.getState()))!.insideInterior).toBe(true);
+
+  await teleport(30, 34.8, Math.PI);
+  await page.evaluate(() => window.__MC_TEST__?.setCameraYaw(Math.PI));
+  await expect(page.getByText('افتح الباب', { exact: true })).toBeVisible();
+  await page.screenshot({ path: 'artifacts/screenshots/phase3-supermarket.png' });
+  await interact();
+  await page.waitForTimeout(600);
+  await page.keyboard.down('KeyW');
+  await page.waitForTimeout(900);
+  await page.keyboard.up('KeyW');
+  const supermarketInterior = (await page.evaluate(() => window.__MC_TEST__?.getState()))!;
+  expect(supermarketInterior.insideInterior).toBe(true);
+  expect(supermarketInterior.activeNPCs).toBeGreaterThanOrEqual(1);
+  expect(supermarketInterior.drawCalls).toBeLessThan(150);
+  expect(supermarketInterior.triangles).toBeLessThan(100_000);
+  await page.screenshot({ path: 'artifacts/screenshots/phase3-supermarket-interior.png' });
+
+  await page.reload();
+  await page.getByRole('button', { name: /متابعة/ }).click();
+  await expect.poll(
+    async () => (await page.evaluate(() => window.__MC_TEST__?.getState()))!.freeRoam,
+  ).toBe(true);
+
+  await page.evaluate(() => window.__MC_TEST__?.resetMission());
   await page.waitForTimeout(150);
   const reset = (await page.evaluate(() => window.__MC_TEST__?.getState()))!;
   expect(reset.missionObjective).toBe('discover-panel');

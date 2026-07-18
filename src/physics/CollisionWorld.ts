@@ -44,6 +44,12 @@ export class CollisionWorld {
     return this.colliders;
   }
 
+  removeBoxes(ids: ReadonlySet<string>): void {
+    for (let index = this.colliders.length - 1; index >= 0; index -= 1) {
+      if (ids.has(this.colliders[index].id)) this.colliders.splice(index, 1);
+    }
+  }
+
   setEnabled(id: string, enabled: boolean): void {
     const collider = this.colliders.find((item) => item.id === id);
     if (!collider) throw new Error(`Unknown collider: ${id}`);

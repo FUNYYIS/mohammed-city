@@ -1,12 +1,16 @@
 # Asset licenses
 
-## Included through the Phase 2 vertical slice
+## Included through Phase 3
 
 No third-party visual or audio assets are included. The approximate child character, environment, icon source, materials, and geometry are project-authored procedural assets. The character is an improved temporary visual and is **not** represented as a final likeness or final art.
 
 The Phase 2 warehouse, road, garage, electrical devices, mission markers, and
 car are also project-authored procedural geometry. The car has no third-party
 brand, texture, or audio and is a temporary game-ready integration asset.
+
+The Phase 3 house, supermarket, storefronts, district props, doors, and five
+limited NPC visuals are also project-authored procedural geometry. They are
+lightweight integration art, not final city or character assets.
 
 ## Researched but not downloaded
 

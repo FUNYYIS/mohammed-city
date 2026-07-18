@@ -9,6 +9,7 @@ export class GameUI {
   private readonly interactionPrompt: HTMLElement;
   private readonly completionPanel: HTMLElement;
   private readonly continueButton: HTMLButtonElement;
+  private readonly missionIndex: HTMLElement;
   private readonly missionTitle: HTMLElement;
   private readonly missionObjective: HTMLElement;
   private readonly interactButton: HTMLButtonElement;
@@ -20,6 +21,7 @@ export class GameUI {
   private onStartHandler: ((resume: boolean) => void) | null = null;
   private onPauseHandler: ((paused: boolean) => void) | null = null;
   private onResetHandler: (() => void) | null = null;
+  private onExploreCityHandler: (() => void) | null = null;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -38,7 +40,7 @@ export class GameUI {
             <button class="menu-button" data-menu-action="continue" disabled><b>متابعة</b><small>لا يوجد حفظ بعد</small></button>
             <button class="menu-button" data-menu-action="settings" disabled><b>الإعدادات</b><small>قريبًا</small></button>
           </nav>
-          <div class="phase-chip"><span></span> المرحلة الثانية — Vertical Slice</div>
+          <div class="phase-chip"><span></span> المرحلة الثالثة — المدينة الأساسية</div>
         </section>
 
         <section class="game-hud" data-screen="hud" aria-label="واجهة اللعب">
@@ -70,7 +72,7 @@ export class GameUI {
         </section>
 
         <section class="mission-complete-panel" data-screen="complete" role="dialog" aria-label="اكتملت المهمة">
-          <div><span class="completion-mark">✓</span><small>المهمة 01</small><h2>كفو يا محمد!</h2><p>هربت من المستودع ووصلت إلى الكراج.</p><button class="primary-button compact" data-mission-reset><b>إعادة المهمة</b></button></div>
+          <div><span class="completion-mark">✓</span><small>المهمة 01</small><h2>كفو يا محمد!</h2><p>هربت من المستودع ووصلت إلى الكراج. المدينة صارت مفتوحة للاستكشاف.</p><button class="primary-button compact" data-explore-city><b>ادخل المدينة</b></button><button class="reset-button" data-mission-reset>إعادة المهمة</button></div>
         </section>
 
         <section class="rotate-overlay" data-screen="rotate" role="alert">
@@ -93,6 +95,7 @@ export class GameUI {
     this.interactionPrompt = this.required('[data-interaction-prompt]');
     this.completionPanel = this.required('[data-screen="complete"]');
     this.continueButton = this.required<HTMLButtonElement>('[data-menu-action="continue"]');
+    this.missionIndex = this.required('.mission-index');
     this.missionTitle = this.required('[data-mission-title]');
     this.missionObjective = this.required('[data-mission-objective]');
     this.interactButton = this.required<HTMLButtonElement>('[data-action="interact"]');
@@ -113,6 +116,10 @@ export class GameUI {
 
   onReset(handler: () => void): void {
     this.onResetHandler = handler;
+  }
+
+  onExploreCity(handler: () => void): void {
+    this.onExploreCityHandler = handler;
   }
 
   setContinueAvailable(available: boolean): void {
@@ -153,9 +160,17 @@ export class GameUI {
     window.setTimeout(() => this.status.classList.remove('is-visible'), 3200);
   }
 
-  updateMission(title: string, objective: string): void {
+  updateMission(title: string, objective: string, index = '01'): void {
+    this.missionIndex.textContent = index;
     this.missionTitle.textContent = title;
     this.missionObjective.textContent = objective;
+  }
+
+  enterCityExploration(): void {
+    this.missionComplete = false;
+    this.paused = false;
+    this.completionPanel.classList.remove('is-visible');
+    this.refreshGameplayLayers();
   }
 
   setInteractionPrompt(label: string | null): void {
@@ -189,6 +204,7 @@ export class GameUI {
     this.root.querySelector('[data-menu-action="start"]')?.addEventListener('click', () => this.onStartHandler?.(false));
     this.root.querySelector('[data-menu-action="continue"]')?.addEventListener('click', () => this.onStartHandler?.(true));
     this.root.querySelector('[data-menu-action="resume"]')?.addEventListener('click', () => this.togglePause(false));
+    this.root.querySelector('[data-explore-city]')?.addEventListener('click', () => this.onExploreCityHandler?.());
     this.root.querySelectorAll('[data-mission-reset]').forEach((button) => {
       button.addEventListener('click', () => this.onResetHandler?.());
     });

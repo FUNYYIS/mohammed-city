@@ -23,7 +23,7 @@ export class ThirdPersonCamera {
   mode: CameraMode = 'outdoor';
   private readonly raycaster = new Raycaster();
   private readonly collisionRay = new Ray();
-  private readonly collisionBounds: Array<{ object: Object3D; bounds: Box3; dynamic: boolean }>;
+  private collisionBounds: Array<{ object: Object3D; bounds: Box3; dynamic: boolean }>;
   private initialized = false;
   private resolvedDistance = this.distance;
 
@@ -46,6 +46,7 @@ export class ThirdPersonCamera {
   }
 
   update(delta: number, playerPosition: Vector3, cameraDelta: Vector2): void {
+    this.syncCollisionObstacles();
     const firstUpdate = !this.initialized;
     this.yaw -= cameraDelta.x * 0.0042;
     this.pitch = MathUtils.clamp(this.pitch + cameraDelta.y * 0.0035, -0.12, 0.72);
@@ -107,7 +108,10 @@ export class ThirdPersonCamera {
     // bounds below to cover the camera volume at corners and thin obstacles.
     this.raycaster.set(origin, rayDirection);
     this.raycaster.far = wantedDistance;
-    const hits = this.raycaster.intersectObjects(this.obstacles, false);
+    const hits = this.raycaster.intersectObjects(
+      this.obstacles.filter((obstacle) => obstacle.visible),
+      false,
+    );
     if (hits.length > 0) {
       safeDistance = Math.min(
         safeDistance,
@@ -117,6 +121,7 @@ export class ThirdPersonCamera {
 
     this.collisionRay.set(origin, rayDirection);
     for (const entry of this.collisionBounds) {
+      if (!entry.object.visible) continue;
       if (entry.dynamic) {
         entry.object.updateWorldMatrix(true, false);
         entry.bounds.setFromObject(entry.object).expandByScalar(CAMERA_COLLISION_RADIUS);
@@ -137,6 +142,20 @@ export class ThirdPersonCamera {
     }
 
     return safeDistance;
+  }
+
+  private syncCollisionObstacles(): void {
+    const unchanged = this.collisionBounds.length === this.obstacles.length
+      && this.collisionBounds.every((entry, index) => entry.object === this.obstacles[index]);
+    if (unchanged) return;
+    this.collisionBounds = this.obstacles.map((obstacle) => {
+      obstacle.updateWorldMatrix(true, false);
+      return {
+        object: obstacle,
+        bounds: new Box3().setFromObject(obstacle).expandByScalar(CAMERA_COLLISION_RADIUS),
+        dynamic: obstacle.userData.dynamicCameraObstacle === true,
+      };
+    });
   }
 
   resize(width: number, height: number): void {

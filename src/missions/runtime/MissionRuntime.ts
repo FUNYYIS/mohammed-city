@@ -50,7 +50,7 @@ export class MissionRuntime {
   }
 
   hasSavedProgress(): boolean {
-    return this.progress.started && !this.progress.completed;
+    return this.progress.started;
   }
 
   startNew(): MissionProgress {

@@ -20,6 +20,8 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import type { InteractableDefinition } from '../interactions/InteractionSystem';
 import type { MissionProgress } from '../missions/runtime/MissionRuntime';
 import { CollisionWorld } from '../physics/CollisionWorld';
+import type { ZoneStreamingState } from '../streaming/ZoneStreamingManager';
+import { CityDistricts, type CityStreamingUpdate } from './CityDistricts';
 import { MISSION_ONE_TOP_SURFACES, type MissionSurfaceMaterial } from './MissionOneSurfaceLayout';
 
 const palette = {
@@ -57,6 +59,7 @@ export class MissionOneWorld {
   readonly vehicleSpawn = new Vector3(0, 0, 10.2);
   readonly garageGoal = new Vector3(0, 0, 41.2);
   readonly interactables: Readonly<Record<string, InteractableDefinition>>;
+  readonly city: CityDistricts;
   private readonly root = new Group();
   private readonly markers = new Map<string, Group>();
   private readonly breakerLevers = new Map<string, Mesh>();
@@ -74,7 +77,7 @@ export class MissionOneWorld {
   private generatorEventSent = false;
 
   constructor() {
-    this.scene.name = 'phase-two-mission-one';
+    this.scene.name = 'phase-three-core-city';
     this.scene.background = new Color(palette.sky);
     this.scene.fog = new Fog(palette.sky, 58, 108);
     this.scene.add(this.root);
@@ -86,6 +89,7 @@ export class MissionOneWorld {
     this.addStreet();
     this.addGarage();
     this.addDistantCity();
+    this.city = new CityDistricts(this.root, this.collisions, this.cameraObstacles);
     this.interactables = this.createInteractables();
     this.createMissionMarkers();
     this.reset();
@@ -130,6 +134,26 @@ export class MissionOneWorld {
       events.push('door-opened');
     }
     return events;
+  }
+
+  updateCityStreaming(
+    delta: number,
+    navigationPosition: Vector3,
+    playerPosition: Vector3,
+  ): CityStreamingUpdate {
+    return this.city.update(delta, navigationPosition, playerPosition);
+  }
+
+  getCityZoneStates(): Readonly<Record<string, ZoneStreamingState>> {
+    return this.city.getStates();
+  }
+
+  getActiveCityZoneIds(): string[] {
+    return this.city.getActiveZoneIds();
+  }
+
+  getActiveNPCCount(): number {
+    return this.city.getActiveNPCCount();
   }
 
   startGenerator(): boolean {
@@ -262,6 +286,8 @@ export class MissionOneWorld {
       warehouseFloor: new MeshStandardMaterial({ color: palette.floor, roughness: 0.95, side: DoubleSide }),
       road: new MeshStandardMaterial({ color: palette.road, roughness: 0.96, side: DoubleSide }),
       garageFloor: new MeshStandardMaterial({ color: 0x9b978d, roughness: 0.96, side: DoubleSide }),
+      houseFloor: new MeshStandardMaterial({ color: 0xd9cbb1, roughness: 0.92, side: DoubleSide }),
+      shopFloor: new MeshStandardMaterial({ color: 0xc7d5d2, roughness: 0.9, side: DoubleSide }),
       grass: new MeshStandardMaterial({ color: 0x69816b, roughness: 1, side: DoubleSide }),
     };
     MISSION_ONE_TOP_SURFACES.forEach((surface) => {
@@ -382,11 +408,13 @@ export class MissionOneWorld {
   private addStreet(): void {
     const curbMaterial = new MeshStandardMaterial({ color: palette.curb, roughness: 0.96 });
     for (const x of [-6.25, 6.25]) {
-      const curb = new Mesh(new RoundedBoxGeometry(2.5, 0.2, 33.5, 3, 0.08), curbMaterial);
-      curb.position.set(x, 0.1, 21.25);
-      curb.receiveShadow = true;
-      this.root.add(curb);
-      this.collisions.addBox(`street-curb-${x}`, curb.position, new Vector3(2.5, 0.2, 33.5), false);
+      for (const [segment, centerZ, depth] of [['south', 14.25, 19.5], ['north', 36, 4]] as const) {
+        const curb = new Mesh(new RoundedBoxGeometry(2.5, 0.2, depth, 3, 0.08), curbMaterial);
+        curb.position.set(x, 0.1, centerZ);
+        curb.receiveShadow = true;
+        this.root.add(curb);
+        this.collisions.addBox(`street-curb-${segment}-${x}`, curb.position, new Vector3(2.5, 0.2, depth), false);
+      }
     }
 
     const stripeMaterial = new MeshStandardMaterial({
@@ -398,15 +426,22 @@ export class MissionOneWorld {
       depthWrite: false,
       side: DoubleSide,
     });
-    for (let z = 8; z < 37; z += 5) {
+    for (let z = 8; z < 24; z += 5) {
       const stripe = this.plane(0.12, 2.4, stripeMaterial);
       stripe.position.set(0, 0.004, z);
       stripe.renderOrder = 2;
       this.root.add(stripe);
     }
+    for (let x = -49; x <= 49; x += 7) {
+      if (Math.abs(x) < 6) continue;
+      const stripe = this.plane(2.8, 0.12, stripeMaterial);
+      stripe.position.set(x, 0.004, 29);
+      stripe.renderOrder = 2;
+      this.root.add(stripe);
+    }
 
     const poleMaterial = new MeshStandardMaterial({ color: palette.navy, metalness: 0.32, roughness: 0.55 });
-    for (const z of [9, 20, 31]) {
+    for (const z of [9, 20, 37]) {
       for (const x of [-7.0, 7.0]) {
         const pole = new Mesh(new CylinderGeometry(0.09, 0.12, 4, 10), poleMaterial);
         pole.position.set(x, 2, z);
@@ -437,7 +472,7 @@ export class MissionOneWorld {
   private addDistantCity(): void {
     const material = new MeshStandardMaterial({ color: 0x527384, roughness: 0.98 });
     const blocks = [
-      [-18, 16, 8, 11, 7], [18, 14, 9, 15, 8], [-17, 33, 10, 18, 7], [18, 35, 8, 12, 7],
+      [-64, 8, 9, 13, 8], [64, 13, 10, 16, 8], [-47, 72, 12, 18, 9], [49, 72, 10, 14, 8],
     ];
     blocks.forEach(([x, z, width, height, depth]) => {
       const block = new Mesh(new RoundedBoxGeometry(width, height, depth, 3, 0.25), material);
