@@ -113,6 +113,49 @@ describe('PlayerController', () => {
     expect(player.getSpeed()).toBeLessThanOrEqual(3.21);
   });
 
+  it('keeps all four movement directions aligned after a quarter-turn camera orbit', () => {
+    const cases = [
+      { name: 'up', move: new Vector2(0, 1), axis: 'x' as const, sign: -1 },
+      { name: 'down', move: new Vector2(0, -1), axis: 'x' as const, sign: 1 },
+      { name: 'right', move: new Vector2(1, 0), axis: 'z' as const, sign: -1 },
+      { name: 'left', move: new Vector2(-1, 0), axis: 'z' as const, sign: 1 },
+    ];
+
+    for (const direction of cases) {
+      const player = new PlayerController(new CollisionWorld());
+      const start = player.position.clone();
+      for (let frame = 0; frame < 20; frame += 1) {
+        player.update(1 / 60, input({ move: direction.move }), Math.PI / 2);
+      }
+
+      const displacement = player.position[direction.axis] - start[direction.axis];
+      expect(
+        displacement * direction.sign,
+        `${direction.name} should stay camera-relative`,
+      ).toBeGreaterThan(0.35);
+    }
+  });
+
+  it('keeps all four movement directions aligned before camera orbit', () => {
+    const cases = [
+      { move: new Vector2(0, 1), axis: 'z' as const, sign: -1 },
+      { move: new Vector2(0, -1), axis: 'z' as const, sign: 1 },
+      { move: new Vector2(1, 0), axis: 'x' as const, sign: 1 },
+      { move: new Vector2(-1, 0), axis: 'x' as const, sign: -1 },
+    ];
+
+    for (const direction of cases) {
+      const player = new PlayerController(new CollisionWorld());
+      const start = player.position.clone();
+      for (let frame = 0; frame < 20; frame += 1) {
+        player.update(1 / 60, input({ move: direction.move }), 0);
+      }
+
+      const displacement = player.position[direction.axis] - start[direction.axis];
+      expect(displacement * direction.sign).toBeGreaterThan(0.35);
+    }
+  });
+
   it('does not pass through a wall on a real movement path', () => {
     const world = new CollisionWorld();
     world.addBox('test-wall', new Vector3(0, 1.5, 3.6), new Vector3(5, 3, 0.25));

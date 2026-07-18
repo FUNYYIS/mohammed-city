@@ -16,6 +16,24 @@ test('starts, moves, jumps, crouches, pauses, and restores landscape play', asyn
   const moved = await page.evaluate(() => window.__MC_TEST__?.getState());
   expect(moved!.player.z).toBeLessThan(initial!.player.z - 0.3);
 
+  // Orbit roughly 90 degrees left, then verify forward still follows the
+  // camera view instead of reversing as the old sine signs did.
+  const canvas = page.locator('#game-canvas');
+  const canvasBounds = await canvas.boundingBox();
+  expect(canvasBounds).not.toBeNull();
+  const dragStartX = canvasBounds!.x + canvasBounds!.width * 0.72;
+  const dragY = canvasBounds!.y + canvasBounds!.height * 0.5;
+  await page.mouse.move(dragStartX, dragY);
+  await page.mouse.down();
+  await page.mouse.move(dragStartX - 374, dragY, { steps: 12 });
+  await page.mouse.up();
+  const beforeOrbitMove = await page.evaluate(() => window.__MC_TEST__?.getState());
+  await page.keyboard.down('KeyW');
+  await page.waitForTimeout(650);
+  await page.keyboard.up('KeyW');
+  const afterOrbitMove = await page.evaluate(() => window.__MC_TEST__?.getState());
+  expect(afterOrbitMove!.player.x).toBeLessThan(beforeOrbitMove!.player.x - 0.3);
+
   await page.keyboard.press('Space');
   await page.waitForTimeout(80);
   const jumping = (await page.evaluate(() => window.__MC_TEST__?.getState()))!;

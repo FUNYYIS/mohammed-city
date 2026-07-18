@@ -11,6 +11,10 @@ Status: **code and desktop production checks passed; physical iPhone Safari acce
 3. `lostpointercapture` was not handled for the joystick, camera, or buttons.
 4. Touch state was not reset on `orientationchange`, `visibilitychange`, `pagehide`, or the complete `blur` path.
 5. A document-level `touchmove.preventDefault()` mixed Touch Events into a Pointer Events controller and affected the whole page.
+6. The player controller derived camera-relative forward/right vectors with the
+   positive yaw sine used by the camera's position offset. The camera view uses
+   the opposite X/Z offset, so at a quarter-turn both movement axes were exactly
+   reversed.
 
 ## Input changes
 
@@ -24,6 +28,8 @@ Status: **code and desktop production checks passed; physical iPhone Safari acce
 - `blur`, `visibilitychange`, `orientationchange`, and `pagehide` reset every pressed state immediately.
 - Removed the global Touch Event prevention. `touch-action: none` remains limited to the game canvas and interactive touch controls.
 - Added `?debugInput=1` overlay for pointer IDs, raw/processed axes, buttons, and active touch count.
+- Corrected the camera-relative movement basis to use the camera view direction,
+  keeping up/down/left/right aligned after orbiting the camera.
 
 ## Confirmed ground rendering root cause
 
@@ -48,8 +54,9 @@ The plaza/inset separation was only 7 mm in world units while all three planes c
 ## Verification completed
 
 - `npm run build`: passed.
-- Unit tests: 15/15 passed across 4 files.
+- Unit tests: 37/37 passed across 6 files.
 - Direction mapping: forward/back/left/right passed mathematically.
+- Direction mapping after a 90-degree camera orbit passed in unit and browser tests.
 - Dead zone and radial clamp tests: passed.
 - Pointer ownership, multi-pointer separation, release, and full reset tests: passed.
 - Surface overlap audit: zero overlapping top surfaces.
@@ -84,5 +91,7 @@ Phase 2 remains blocked until these physical-device checks pass.
 - `src/world/SurfaceLayout.ts`
 - `src/camera/ThirdPersonCamera.ts`
 - `tests/unit/InputManager.test.ts`
+- `tests/unit/PlayerController.test.ts`
+- `tests/e2e/gameplay.spec.ts`
 - `tests/unit/SurfaceLayout.test.ts`
 - `docs/IOS_TEST_CHECKLIST.md`

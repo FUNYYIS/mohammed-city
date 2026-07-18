@@ -30,8 +30,11 @@ export class PlayerController {
     const wasGrounded = this.grounded;
     this.crouching = input.crouch;
 
-    worldForward.set(Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
-    worldRight.set(Math.cos(cameraYaw), 0, Math.sin(cameraYaw));
+    // The camera sits at +offset from its target, so its view direction uses
+    // the negative X/Z offset. Keeping this basis identical to the camera
+    // prevents touch movement from reversing after orbiting left or right.
+    worldForward.set(-Math.sin(cameraYaw), 0, -Math.cos(cameraYaw));
+    worldRight.set(Math.cos(cameraYaw), 0, -Math.sin(cameraYaw));
     desiredDirection
       .copy(worldForward)
       .multiplyScalar(input.move.y)
