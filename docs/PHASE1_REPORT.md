@@ -69,7 +69,10 @@ Sampled in the local browser after scene stabilization; this is not iPhone evide
 ## Remaining known risks
 
 - Physical Safari memory, thermals, safe areas, multi-touch, PWA installation, and offline behavior remain unknown.
-- Camera collision uses a center ray in Phase 1; a wider sphere approximation is required before dense interiors.
+- Camera collision now uses an expanded static-obstacle envelope as a lightweight
+  swept-sphere approximation, with exact mesh ray hits retained for broad
+  surfaces. Physical iPhone verification around wall and ceiling edges remains
+  required before dense interiors.
 - The temporary character has procedural motion, not a humanoid rig or authored clips.
 - The test environment proves composition and systems only; it does not satisfy final visual quality.
 

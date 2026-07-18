@@ -27,6 +27,7 @@ declare global {
         playerRootY: number;
         visualLocalY: number;
         cameraTargetY: number;
+        cameraDistance: number;
         characterPose: string;
         characterDrawCalls: number;
         characterTriangles: number;
@@ -205,6 +206,7 @@ export class GameApp {
       `Root Y: ${this.player.view.root.position.y.toFixed(3)}`,
       `Visual local Y: ${this.player.view.visualRoot.position.y.toFixed(3)}`,
       `Camera target Y: ${this.debugCameraTarget.y.toFixed(3)}`,
+      `Camera distance: ${this.cameraRig.getResolvedDistance().toFixed(3)}`,
       `Grounded: ${this.player.grounded}`,
       `Pose: ${this.player.view.getPoseName()}`,
       `Character calls: ${this.characterMetrics.drawCalls}`,
@@ -254,6 +256,7 @@ export class GameApp {
           playerRootY: this.player.view.root.position.y,
           visualLocalY: this.player.view.visualRoot.position.y,
           cameraTargetY: this.debugCameraTarget.y,
+          cameraDistance: this.cameraRig.getResolvedDistance(),
           characterPose: this.player.view.getPoseName(),
           characterDrawCalls: this.characterMetrics.drawCalls,
           characterTriangles: this.characterMetrics.triangles,
