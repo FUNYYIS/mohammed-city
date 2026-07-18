@@ -1,6 +1,7 @@
 # Mission design
 
-The ten missions are defined by the supplied design brief. They are intentionally not implemented in Phase 1.
+The ten missions are defined by the supplied design brief. Only Mission 1 is
+implemented in the Phase 2 vertical slice.
 
 Phase 2 starts with Mission 1, **الهروب من المستودع**, as the only vertical slice. Its required ordered state is:
 
@@ -13,4 +14,12 @@ Phase 2 starts with Mission 1, **الهروب من المستودع**, as the on
 7. Reach the garage.
 8. Complete the mission once, and only once.
 
-The runtime must store sequential objectives as data and reject out-of-order completion. Phase 1 contains no fake mission-success path.
+The runtime stores sequential objectives as data and rejects out-of-order
+completion. The three breakers are one sequence objective with independent
+sub-progress; a wrong breaker resets that sub-progress. Generator and door
+objectives advance from completed world animations, not from the initial button
+press. Completion is possible only inside the garage while occupying the car.
+
+Progress is stored in guarded browser local storage. Resume rebuilds the world
+devices for the saved objective, and Reset clears the mission, generator, door,
+vehicle, markers, and player checkpoint.

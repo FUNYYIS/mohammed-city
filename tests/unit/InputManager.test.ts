@@ -54,6 +54,7 @@ describe('PointerInputState', () => {
     expect(state.claimCamera(2)).toBe(true);
     expect(state.claimAction('run', 3)).toBe(true);
     expect(state.claimAction('jump', 4)).toBe(true);
+    expect(state.claimAction('interact', 5)).toBe(true);
     expect(state.claimCamera(3)).toBe(false);
 
     const released = state.releasePointer(3);
@@ -62,6 +63,7 @@ describe('PointerInputState', () => {
     expect(state.cameraPointer).toBe(2);
     expect(state.isActionPressed('jump')).toBe(true);
     expect(state.isActionPressed('run')).toBe(false);
+    expect(state.isActionPressed('interact')).toBe(true);
   });
 
   it('clears every pressed state on lifecycle reset', () => {
@@ -71,12 +73,14 @@ describe('PointerInputState', () => {
     state.claimJoystick(1);
     state.claimCamera(2);
     state.claimAction('crouch', 3);
+    state.claimAction('vehicle', 4);
 
     state.reset();
 
     expect(state.joystickPointer).toBeNull();
     expect(state.cameraPointer).toBeNull();
     expect(state.isActionPressed('crouch')).toBe(false);
+    expect(state.isActionPressed('vehicle')).toBe(false);
     expect(state.activeTouchPointers.size).toBe(0);
   });
 });

@@ -1,9 +1,10 @@
-import { Box3, Vector3 } from 'three';
+import { Box3, Ray, Vector3 } from 'three';
 
 export interface StaticCollider {
   id: string;
   bounds: Box3;
   cameraBlocking: boolean;
+  enabled: boolean;
 }
 
 export interface CapsuleShape {
@@ -20,6 +21,9 @@ export interface CapsuleMoveResult {
 }
 
 const candidate = new Vector3();
+const rayDirection = new Vector3();
+const rayHit = new Vector3();
+const sightRay = new Ray();
 
 export class CollisionWorld {
   private readonly colliders: StaticCollider[] = [];
@@ -30,6 +34,7 @@ export class CollisionWorld {
       id,
       bounds: new Box3(center.clone().sub(half), center.clone().add(half)),
       cameraBlocking,
+      enabled: true,
     };
     this.colliders.push(collider);
     return collider;
@@ -39,13 +44,41 @@ export class CollisionWorld {
     return this.colliders;
   }
 
-  overlapsCapsule(position: Vector3, shape: CapsuleShape): boolean {
+  setEnabled(id: string, enabled: boolean): void {
+    const collider = this.colliders.find((item) => item.id === id);
+    if (!collider) throw new Error(`Unknown collider: ${id}`);
+    collider.enabled = enabled;
+  }
+
+  updateBox(id: string, center: Vector3, size: Vector3): void {
+    const collider = this.colliders.find((item) => item.id === id);
+    if (!collider) throw new Error(`Unknown collider: ${id}`);
+    const half = size.clone().multiplyScalar(0.5);
+    collider.bounds.set(center.clone().sub(half), center.clone().add(half));
+  }
+
+  overlapsCapsule(position: Vector3, shape: CapsuleShape, ignoredIds?: ReadonlySet<string>): boolean {
     const capsuleMinY = position.y + 0.03;
     const capsuleMaxY = position.y + shape.height;
 
-    return this.colliders.some(({ bounds }) => {
+    return this.colliders.some(({ id, bounds, enabled }) => {
+      if (!enabled || ignoredIds?.has(id)) return false;
       if (capsuleMaxY <= bounds.min.y || capsuleMinY >= bounds.max.y) return false;
       return this.overlapsBoundsXZ(position, bounds, shape.radius);
+    });
+  }
+
+  hasLineOfSight(start: Vector3, end: Vector3, ignoredIds?: ReadonlySet<string>): boolean {
+    rayDirection.copy(end).sub(start);
+    const distance = rayDirection.length();
+    if (distance <= 0.001) return true;
+    rayDirection.multiplyScalar(1 / distance);
+    sightRay.set(start, rayDirection);
+
+    return !this.colliders.some(({ id, bounds, enabled }) => {
+      if (!enabled || ignoredIds?.has(id) || bounds.containsPoint(start)) return false;
+      const hit = sightRay.intersectBox(bounds, rayHit);
+      return Boolean(hit && hit.distanceTo(start) < distance - 0.06);
     });
   }
 
@@ -84,7 +117,8 @@ export class CollisionWorld {
 
     if (displacement.y > 0) {
       const proposedTop = nextY + shape.height;
-      for (const { bounds } of this.colliders) {
+      for (const { bounds, enabled } of this.colliders) {
+        if (!enabled) continue;
         if (!this.overlapsBoundsXZ(candidate, bounds, shape.radius)) continue;
         const crossesCeiling = currentTop <= bounds.min.y + 0.0001
           && proposedTop >= bounds.min.y
@@ -94,7 +128,8 @@ export class CollisionWorld {
         hitCeiling = true;
       }
     } else if (displacement.y < 0) {
-      for (const { bounds } of this.colliders) {
+      for (const { bounds, enabled } of this.colliders) {
+        if (!enabled) continue;
         if (!this.overlapsBoundsXZ(candidate, bounds, shape.radius)) continue;
         const crossesPlatform = currentBottom >= bounds.max.y - 0.0001
           && nextY <= bounds.max.y

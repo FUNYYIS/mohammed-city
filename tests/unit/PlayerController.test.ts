@@ -10,6 +10,8 @@ const input = (overrides: Partial<InputSnapshot> = {}): InputSnapshot => ({
   run: false,
   crouch: false,
   jumpPressed: false,
+  interactPressed: false,
+  vehiclePressed: false,
   ...overrides,
 });
 

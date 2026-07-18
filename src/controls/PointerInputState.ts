@@ -1,4 +1,5 @@
-export type TouchAction = 'jump' | 'run' | 'crouch';
+export const TOUCH_ACTIONS = ['jump', 'run', 'crouch', 'interact', 'vehicle'] as const;
+export type TouchAction = typeof TOUCH_ACTIONS[number];
 
 export interface ReleasedPointerRoles {
   joystick: boolean;
@@ -14,6 +15,8 @@ export class PointerInputState {
     jump: null,
     run: null,
     crouch: null,
+    interact: null,
+    vehicle: null,
   };
 
   claimJoystick(pointerId: number): boolean {
@@ -59,7 +62,7 @@ export class PointerInputState {
 
     if (released.joystick) this.joystickPointer = null;
     if (released.camera) this.cameraPointer = null;
-    (Object.keys(this.actionPointers) as TouchAction[]).forEach((action) => {
+    TOUCH_ACTIONS.forEach((action) => {
       if (this.actionPointers[action] !== pointerId) return;
       this.actionPointers[action] = null;
       released.actions.push(action);
@@ -70,9 +73,7 @@ export class PointerInputState {
   reset(): void {
     this.joystickPointer = null;
     this.cameraPointer = null;
-    this.actionPointers.jump = null;
-    this.actionPointers.run = null;
-    this.actionPointers.crouch = null;
+    TOUCH_ACTIONS.forEach((action) => { this.actionPointers[action] = null; });
     this.activeTouchPointers.clear();
   }
 

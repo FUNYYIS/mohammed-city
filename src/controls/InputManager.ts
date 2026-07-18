@@ -1,5 +1,5 @@
 import { Vector2 } from 'three';
-import { PointerInputState, type TouchAction } from './PointerInputState';
+import { PointerInputState, TOUCH_ACTIONS, type TouchAction } from './PointerInputState';
 
 export interface InputSnapshot {
   move: Vector2;
@@ -7,6 +7,8 @@ export interface InputSnapshot {
   run: boolean;
   crouch: boolean;
   jumpPressed: boolean;
+  interactPressed: boolean;
+  vehiclePressed: boolean;
 }
 
 export interface JoystickSample {
@@ -71,6 +73,8 @@ export class InputManager {
   private readonly debugOverlay: HTMLElement | null;
   private readonly actionButtons = new Map<TouchAction, HTMLButtonElement>();
   private jumpQueued = false;
+  private interactQueued = false;
+  private vehicleQueued = false;
   private lastCameraX = 0;
   private lastCameraY = 0;
 
@@ -103,9 +107,13 @@ export class InputManager {
       run: this.pointerState.isActionPressed('run') || this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'),
       crouch: this.pointerState.isActionPressed('crouch') || this.keys.has('KeyC') || this.keys.has('ControlLeft') || this.keys.has('ControlRight'),
       jumpPressed: this.jumpQueued,
+      interactPressed: this.interactQueued,
+      vehiclePressed: this.vehicleQueued,
     };
 
     this.jumpQueued = false;
+    this.interactQueued = false;
+    this.vehicleQueued = false;
     this.cameraDelta.set(0, 0);
     this.renderDebugOverlay();
     return snapshot;
@@ -116,6 +124,8 @@ export class InputManager {
     this.pointerState.reset();
     this.keys.clear();
     this.jumpQueued = false;
+    this.interactQueued = false;
+    this.vehicleQueued = false;
     this.joystickRaw.set(0, 0);
     this.joystickMove.set(0, 0);
     this.cameraDelta.set(0, 0);
@@ -144,6 +154,8 @@ export class InputManager {
   private bindKeyboard(): void {
     window.addEventListener('keydown', (event) => {
       if (event.code === 'Space' && !event.repeat) this.jumpQueued = true;
+      if (event.code === 'KeyE' && !event.repeat) this.interactQueued = true;
+      if (event.code === 'KeyF' && !event.repeat) this.vehicleQueued = true;
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault();
       this.keys.add(event.code);
     });
@@ -181,6 +193,8 @@ export class InputManager {
         this.capturePointer(button, event.pointerId);
         button.classList.add('is-pressed');
         if (action === 'jump') this.jumpQueued = true;
+        if (action === 'interact') this.interactQueued = true;
+        if (action === 'vehicle') this.vehicleQueued = true;
         this.tryHapticFeedback();
         this.renderDebugOverlay();
       });
@@ -234,7 +248,7 @@ export class InputManager {
   private releasePointer(pointerId: number, releaseCapture: boolean): void {
     const joystickElement = this.pointerState.joystickPointer === pointerId ? this.joystickZone : null;
     const cameraElement = this.pointerState.cameraPointer === pointerId ? this.canvas : null;
-    const actionElements = (['jump', 'run', 'crouch'] as TouchAction[])
+    const actionElements = TOUCH_ACTIONS
       .filter((action) => this.pointerState.getActionPointer(action) === pointerId)
       .map((action) => this.actionButtons.get(action))
       .filter((element): element is HTMLButtonElement => Boolean(element));
@@ -263,7 +277,7 @@ export class InputManager {
     if (this.pointerState.cameraPointer !== null) {
       this.releaseCapture(this.canvas, this.pointerState.cameraPointer);
     }
-    (['jump', 'run', 'crouch'] as TouchAction[]).forEach((action) => {
+    TOUCH_ACTIONS.forEach((action) => {
       const pointerId = this.pointerState.getActionPointer(action);
       const button = this.actionButtons.get(action);
       if (pointerId !== null && button) this.releaseCapture(button, pointerId);
@@ -309,6 +323,7 @@ export class InputManager {
       `raw x/y: ${number(this.joystickRaw.x)}  ${number(this.joystickRaw.y)}`,
       `move x/y: ${number(this.joystickMove.x)}  ${number(this.joystickMove.y)}`,
       `jump: ${Number(this.pointerState.isActionPressed('jump'))}  run: ${Number(this.pointerState.isActionPressed('run'))}  crouch: ${Number(this.pointerState.isActionPressed('crouch'))}`,
+      `interact: ${Number(this.pointerState.isActionPressed('interact'))}  vehicle: ${Number(this.pointerState.isActionPressed('vehicle'))}`,
       `active touches: ${this.pointerState.activeTouchPointers.size}`,
     ].join('\n');
   }

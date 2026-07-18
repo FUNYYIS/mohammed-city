@@ -14,6 +14,29 @@ describe('CollisionWorld', () => {
     expect(world.overlapsCapsule(position, { radius: 0.4, height: 1.8 })).toBe(false);
   });
 
+  it('updates and disables dynamic box colliders', () => {
+    const world = new CollisionWorld();
+    world.addBox('door', new Vector3(0, 1, 0), new Vector3(2, 2, 0.3));
+    const player = new Vector3(0, 0, 0);
+    const shape = { radius: 0.4, height: 1.8 };
+    expect(world.overlapsCapsule(player, shape)).toBe(true);
+
+    world.updateBox('door', new Vector3(4, 1, 0), new Vector3(2, 2, 0.3));
+    expect(world.overlapsCapsule(player, shape)).toBe(false);
+    world.setEnabled('door', false);
+    expect(world.overlapsCapsule(new Vector3(4, 0, 0), shape)).toBe(false);
+  });
+
+  it('reports line of sight blocked by enabled colliders only', () => {
+    const world = new CollisionWorld();
+    world.addBox('wall', new Vector3(0, 1, -1), new Vector3(2, 2, 0.2));
+    const start = new Vector3(0, 1, 0);
+    const end = new Vector3(0, 1, -2);
+    expect(world.hasLineOfSight(start, end)).toBe(false);
+    world.setEnabled('wall', false);
+    expect(world.hasLineOfSight(start, end)).toBe(true);
+  });
+
   it('slides along an obstacle and clears its corner when the path opens', () => {
     const world = new CollisionWorld();
     world.addBox('wall', new Vector3(0, 1.5, 0), new Vector3(4, 3, 0.3));

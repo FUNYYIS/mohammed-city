@@ -23,7 +23,7 @@ export class ThirdPersonCamera {
   mode: CameraMode = 'outdoor';
   private readonly raycaster = new Raycaster();
   private readonly collisionRay = new Ray();
-  private readonly collisionBounds: Box3[];
+  private readonly collisionBounds: Array<{ object: Object3D; bounds: Box3; dynamic: boolean }>;
   private initialized = false;
   private resolvedDistance = this.distance;
 
@@ -37,7 +37,11 @@ export class ThirdPersonCamera {
     // the ray test into a lightweight swept-sphere approximation.
     this.collisionBounds = obstacles.map((obstacle) => {
       obstacle.updateWorldMatrix(true, false);
-      return new Box3().setFromObject(obstacle).expandByScalar(CAMERA_COLLISION_RADIUS);
+      return {
+        object: obstacle,
+        bounds: new Box3().setFromObject(obstacle).expandByScalar(CAMERA_COLLISION_RADIUS),
+        dynamic: obstacle.userData.dynamicCameraObstacle === true,
+      };
     });
   }
 
@@ -112,7 +116,12 @@ export class ThirdPersonCamera {
     }
 
     this.collisionRay.set(origin, rayDirection);
-    for (const bounds of this.collisionBounds) {
+    for (const entry of this.collisionBounds) {
+      if (entry.dynamic) {
+        entry.object.updateWorldMatrix(true, false);
+        entry.bounds.setFromObject(entry.object).expandByScalar(CAMERA_COLLISION_RADIUS);
+      }
+      const { bounds } = entry;
       // The camera target may legitimately sit close to a wall while the
       // player faces away from it. In that case the sweep starts inside the
       // expanded volume, so its exit is not an obstruction in front of camera.
@@ -133,6 +142,13 @@ export class ThirdPersonCamera {
   resize(width: number, height: number): void {
     this.camera.aspect = width / Math.max(1, height);
     this.camera.updateProjectionMatrix();
+  }
+
+  reset(yaw = this.yaw): void {
+    this.yaw = yaw;
+    this.initialized = false;
+    this.resolvedDistance = this.distance;
+    this.camera.position.set(0, 0, 0);
   }
 
   getSmoothedTarget(out: Vector3): Vector3 {

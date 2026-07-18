@@ -104,4 +104,16 @@ export class PlayerController {
   getSpeed(): number {
     return this.currentSpeed;
   }
+
+  teleport(position: Vector3, yaw = this.yaw): void {
+    this.position.copy(position);
+    this.velocity.set(0, 0, 0);
+    this.yaw = yaw;
+    this.grounded = true;
+    this.crouching = false;
+    this.currentSpeed = 0;
+    this.view.root.position.copy(position);
+    this.view.root.rotation.y = yaw;
+    this.view.root.visible = true;
+  }
 }
