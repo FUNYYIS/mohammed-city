@@ -67,4 +67,33 @@ describe('SimpleVehicleController', () => {
     expect(exit).not.toBeNull();
     expect(world.overlapsCapsule(exit!, shape, new Set(['mission-car-collider']))).toBe(false);
   });
+
+  it('supports independently gated bicycle and sport-car controllers', () => {
+    const world = new CollisionWorld();
+    const bicycle = new SimpleVehicleController(world, new Vector3(), 0, {
+      id: 'bicycle',
+      displayName: 'الدراجة',
+      kind: 'bicycle',
+      size: new Vector3(1.05, 1.4, 2.15),
+      shape: { radius: 0.62, height: 1.4 },
+      maxForwardSpeed: 5.6,
+    });
+    const sport = new SimpleVehicleController(world, new Vector3(5, 0, 0), 0, {
+      id: 'sport-car',
+      displayName: 'السيارة الرياضية',
+      kind: 'sport',
+      maxForwardSpeed: 10.5,
+    });
+
+    bicycle.setAvailable(false);
+    expect(bicycle.canEnter(new Vector3())).toBe(false);
+    expect(world.getAll().find((item) => item.id === 'bicycle-collider')?.enabled).toBe(false);
+    bicycle.setAvailable(true);
+    bicycle.enter();
+    for (let frame = 0; frame < 60; frame += 1) bicycle.update(1 / 60, input(new Vector2(0, 1)));
+
+    expect(bicycle.position.z).toBeGreaterThan(1);
+    expect(sport.getColliderId()).toBe('sport-car-collider');
+    expect(sport.root.name).toBe('sport-car');
+  });
 });

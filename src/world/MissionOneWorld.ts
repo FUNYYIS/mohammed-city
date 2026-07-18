@@ -23,6 +23,7 @@ import { CollisionWorld } from '../physics/CollisionWorld';
 import type { ZoneStreamingState } from '../streaming/ZoneStreamingManager';
 import { CityDistricts, type CityStreamingUpdate } from './CityDistricts';
 import { MISSION_ONE_TOP_SURFACES, type MissionSurfaceMaterial } from './MissionOneSurfaceLayout';
+import { StoryWorld } from './StoryWorld';
 
 const palette = {
   sky: 0x87b5c3,
@@ -60,6 +61,7 @@ export class MissionOneWorld {
   readonly garageGoal = new Vector3(0, 0, 41.2);
   readonly interactables: Readonly<Record<string, InteractableDefinition>>;
   readonly city: CityDistricts;
+  readonly story: StoryWorld;
   private readonly root = new Group();
   private readonly markers = new Map<string, Group>();
   private readonly breakerLevers = new Map<string, Mesh>();
@@ -90,6 +92,8 @@ export class MissionOneWorld {
     this.addGarage();
     this.addDistantCity();
     this.city = new CityDistricts(this.root, this.collisions, this.cameraObstacles);
+    this.story = new StoryWorld(this.collisions, this.cameraObstacles);
+    this.root.add(this.story.root);
     this.interactables = this.createInteractables();
     this.createMissionMarkers();
     this.reset();
@@ -101,6 +105,7 @@ export class MissionOneWorld {
 
   update(delta: number): MissionWorldEvent[] {
     this.elapsed += delta;
+    this.story.update(delta);
     const events: MissionWorldEvent[] = [];
     this.markers.forEach((marker, id) => {
       if (!marker.visible) return;

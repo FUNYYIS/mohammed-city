@@ -30,10 +30,12 @@ export class HingedCityDoor {
     interactionPosition: Vector3,
     private readonly collisions: CollisionWorld,
     color: number,
+    private readonly baseYaw = 0,
   ) {
     this.colliderId = `${id}-collider`;
     this.root.name = id;
     this.root.position.copy(hingePosition);
+    this.root.rotation.y = baseYaw;
     this.mesh = new Mesh(
       new RoundedBoxGeometry(width, height, depth, 3, 0.08),
       new MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.06 }),
@@ -71,15 +73,19 @@ export class HingedCityDoor {
   }
 
   toggle(): string {
-    this.open = !this.open;
-    this.interactable.label = this.open ? 'اقفل الباب' : 'افتح الباب';
+    this.setOpen(!this.open);
     return this.open ? 'انفتح الباب' : 'انقفل الباب';
+  }
+
+  setOpen(open: boolean): void {
+    this.open = open;
+    this.interactable.label = this.open ? 'اقفل الباب' : 'افتح الباب';
   }
 
   update(delta: number): void {
     const target = this.open ? -Math.PI * 0.5 : 0;
     this.progress = MathUtils.damp(this.progress, this.open ? 1 : 0, 8, delta);
-    this.root.rotation.y = target * this.progress;
+    this.root.rotation.y = this.baseYaw + target * this.progress;
     this.root.updateMatrixWorld(true);
     this.syncCollider();
   }

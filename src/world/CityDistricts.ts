@@ -169,7 +169,7 @@ export class CityDistricts {
     this.addSolid(root, colliderIds, cameraObstacles, 'home-kitchen', new Vector3(-30, 0.55, 12), new Vector3(3.2, 1.1, 0.8), material(colors.teal, 0.82));
     this.addSolid(root, colliderIds, cameraObstacles, 'home-table', new Vector3(-34, 0.55, 17), new Vector3(1.7, 1.1, 1.25), material(colors.wood, 0.88));
 
-    this.addTree(root, -46, 18, 1.05);
+    this.addTree(root, -25, 9, 1.05);
     this.addTree(root, -23, 13, 0.9);
     const resident = new CityNPC('neighborhood-resident', 'أبو راشد', [
       new Vector3(-25, 0, 20),
