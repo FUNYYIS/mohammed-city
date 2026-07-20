@@ -1,5 +1,5 @@
 import { Box3, Group } from 'three';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { CharacterPoseInput, CharacterVisual } from '../../src/entities/player/CharacterVisual';
 import { PlayerView } from '../../src/entities/player/PlayerView';
 
@@ -41,6 +41,36 @@ describe('procedural child character', () => {
 
     expect(view.visualRoot.children).toContain(replacement.root);
     expect(receivedPose).toMatchObject({ speedRatio: 0.5, grounded: true });
+  });
+
+  it('hot-swaps the visual, disposes the placeholder, and delegates gestures', () => {
+    const view = new PlayerView();
+    expect(view.playGesture('wave')).toBe(false);
+
+    const placeholderGeometries: unknown[] = [];
+    view.root.traverse((object) => {
+      if ('geometry' in object) placeholderGeometries.push(object.geometry);
+    });
+    const disposeSpies = placeholderGeometries.map((geometry) =>
+      vi.spyOn(geometry as { dispose(): void }, 'dispose'),
+    );
+
+    const gestures: string[] = [];
+    const replacement: CharacterVisual = {
+      root: new Group(),
+      update: () => {},
+      getPoseName: () => 'idle',
+      getRenderMetrics: () => ({ drawCalls: 1, triangles: 55_665 }),
+      playGesture: (name) => { gestures.push(name); return true; },
+    };
+    view.setCharacter(replacement);
+
+    expect(view.visualRoot.children).toEqual([replacement.root]);
+    expect(view.root.getObjectByName('tailored-white-thobe-body')).toBeUndefined();
+    expect(disposeSpies.length).toBeGreaterThan(0);
+    disposeSpies.forEach((spy) => expect(spy).toHaveBeenCalled());
+    expect(view.playGesture('openDoor')).toBe(true);
+    expect(gestures).toEqual(['openDoor']);
   });
 
   it('contains the authored child details without the old capsule visual', () => {

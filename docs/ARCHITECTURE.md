@@ -32,7 +32,13 @@ collision, world construction, save, and UI state remain separate modules.
 
 ## Character replacement contract
 
-`PlayerView` accepts the `CharacterVisual` contract and currently hosts `ProceduralChildCharacter`. A future file at `public/assets/characters/mohammed/mohammed.glb` can be loaded through `CharacterAssetAdapter` and a GLB-backed `CharacterVisual` without changing `PlayerController`. Position, yaw, speed ratio, vertical velocity, grounded, and crouch state stay controller-owned; animation names and bones remain adapter-owned.
+`PlayerView` accepts the `CharacterVisual` contract. `GameApp` loads the Meshy
+merged-animations GLB (URL owned by `AssetRegistry`) into `MohammedGlbCharacter`
+and hot-swaps it in before gameplay becomes visible; `ProceduralChildCharacter`
+remains only as the load-failure fallback. Position, yaw, speed ratio, vertical
+velocity, grounded, and crouch state stay controller-owned; clip names, the
+semantic action mapping, root-motion policies, and bones remain adapter/visual-owned.
+Gestures flow one way through `PlayerView.playGesture` and never move the player.
 
 ## Phase 4 runtime flow
 

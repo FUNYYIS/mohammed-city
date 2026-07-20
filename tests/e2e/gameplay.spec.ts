@@ -157,7 +157,9 @@ test('completes mission one, enters the streamed city, walks through both new in
   expect(supermarketInterior.insideInterior).toBe(true);
   expect(supermarketInterior.activeNPCs).toBeGreaterThanOrEqual(1);
   expect(supermarketInterior.drawCalls).toBeLessThan(150);
-  expect(supermarketInterior.triangles).toBeLessThan(100_000);
+  // Ceiling raised from 100k for the approved 55.7k-triangle GLB character
+  // (within the 25k-60k character budget); measured 124,618 at integration.
+  expect(supermarketInterior.triangles).toBeLessThan(150_000);
   await page.screenshot({ path: 'artifacts/screenshots/phase3-supermarket-interior.png' });
 
   await page.reload();

@@ -11,7 +11,10 @@ import { ThirdPersonCamera } from '../camera/ThirdPersonCamera';
 import { InputManager } from '../controls/InputManager';
 import { SimpleVehicleController } from '../entities/vehicles/SimpleVehicleController';
 import { PlayerController } from '../entities/player/PlayerController';
-import type { CharacterRenderMetrics } from '../entities/player/CharacterVisual';
+import type { CharacterGestureName, CharacterRenderMetrics } from '../entities/player/CharacterVisual';
+import { MohammedGlbCharacter } from '../entities/player/MohammedGlbCharacter';
+import { assetRegistry } from '../assets/AssetRegistry';
+import { collectibleIds } from '../world/StoryWorld';
 import { InteractionSystem, type InteractableDefinition } from '../interactions/InteractionSystem';
 import { MISSION_ONE } from '../missions/definitions/missionOne';
 import { MissionOneDirector, type MissionFeedback } from '../missions/runtime/MissionOneDirector';
@@ -22,6 +25,18 @@ import { StoryMissionRuntime } from '../missions/runtime/StoryMissionRuntime';
 import { BrowserMissionStorage } from '../save/BrowserMissionStorage';
 import { GameUI } from '../ui/GameUI';
 import { MissionOneWorld } from '../world/MissionOneWorld';
+
+const storyGreetingIds = new Set([
+  'friend-report', 'witness-one', 'witness-two', 'garage-race-talk', 'garage-parts-talk',
+]);
+const storyDoorIds = new Set(['old-house-door', 'hidden-room-latch']);
+
+function storyGestureFor(interactionId: string): CharacterGestureName {
+  if (collectibleIds.has(interactionId)) return 'pickUp';
+  if (storyGreetingIds.has(interactionId)) return 'wave';
+  if (storyDoorIds.has(interactionId)) return 'openDoor';
+  return 'positiveResponse';
+}
 
 declare global {
   interface Window {
@@ -45,6 +60,7 @@ declare global {
         vehicleOccupied: boolean;
         vehicle: { x: number; y: number; z: number };
         characterPose: string;
+        characterClip: string | null;
         characterDrawCalls: number;
         characterTriangles: number;
         drawCalls: number;
@@ -62,6 +78,7 @@ declare global {
         storyCompleted: boolean;
       };
       teleportPlayer: (x: number, y: number, z: number, yaw?: number) => void;
+      playGesture: (name: string) => boolean;
       teleportActiveVehicle: (x: number, z: number, yaw?: number) => void;
       setCameraYaw: (yaw: number) => void;
       resetMission: () => void;
@@ -84,9 +101,12 @@ export class GameApp {
   private readonly storyRuntime: StoryMissionRuntime;
   private readonly storyDirector: StoryMissionDirector;
   private readonly interactionSystem: InteractionSystem;
-  private readonly characterMetrics: CharacterRenderMetrics;
+  private characterMetrics: CharacterRenderMetrics;
+  private glbCharacter: MohammedGlbCharacter | null = null;
+  private readonly characterReady: Promise<void>;
   private readonly clock = new Clock(false);
   private started = false;
+  private startPending = false;
   private freeRoam = false;
   private appPaused = false;
   private frameRequest = 0;
@@ -96,6 +116,7 @@ export class GameApp {
   private readonly frameTimes: number[] = [];
   private longTasks = 0;
   private activeCityInteraction: InteractableDefinition | null = null;
+  private activeStoryInteractionId: string | null = null;
   private interactionSource: 'story' | 'city' | null = null;
   private nearbyVehicle: SimpleVehicleController | null = null;
   private readonly vehicles: SimpleVehicleController[] = [];
@@ -138,6 +159,7 @@ export class GameApp {
     this.player.teleport(this.world.spawnPoint, Math.PI);
     this.characterMetrics = this.player.view.getRenderMetrics();
     this.world.scene.add(this.player.view.root);
+    this.characterReady = this.loadCharacterVisual();
     this.vehicle = new SimpleVehicleController(collisions, this.world.vehicleSpawn);
     this.vehicles.push(this.vehicle);
     this.world.scene.add(this.vehicle.root);
@@ -187,6 +209,31 @@ export class GameApp {
   }
 
   start(resume = false): void {
+    if (this.started || this.startPending) return;
+    // Wait for the GLB character before gameplay becomes visible so the
+    // procedural fallback never flashes on a normal startup. The promise
+    // always settles: a failed load keeps the fallback and only warns.
+    this.startPending = true;
+    void this.characterReady.then(() => {
+      this.startPending = false;
+      this.beginSession(resume);
+    });
+  }
+
+  private async loadCharacterVisual(): Promise<void> {
+    const definition = assetRegistry.get('character.mohammed');
+    if (!definition.url) return;
+    try {
+      const character = await MohammedGlbCharacter.load(definition.url);
+      this.glbCharacter = character;
+      this.player.view.setCharacter(character);
+      this.characterMetrics = this.player.view.getRenderMetrics();
+    } catch (error) {
+      console.warn('[GameApp] Mohammed GLB failed to load; keeping the procedural fallback', error);
+    }
+  }
+
+  private beginSession(resume: boolean): void {
     if (this.started) return;
     this.started = true;
     this.freeRoam = false;
@@ -246,8 +293,15 @@ export class GameApp {
         : this.missionDirector.updateInteraction(this.player.position, this.player.yaw);
       this.ui.setInteractionPrompt(interaction?.label ?? null);
       if (input.interactPressed) {
-        if (this.freeRoam) this.interactInFreeRoam();
-        else this.handleMissionFeedback(this.missionDirector.interact());
+        if (this.freeRoam) {
+          this.interactInFreeRoam();
+        } else {
+          const feedback = this.missionDirector.interact();
+          if (feedback.changed && interaction?.id === 'door-control') {
+            this.player.view.playGesture('openDoor');
+          }
+          this.handleMissionFeedback(feedback);
+        }
       }
 
       this.nearbyVehicle = this.vehicles.find((vehicle) => {
@@ -416,6 +470,7 @@ export class GameApp {
           vehicleOccupied: Boolean(this.getOccupiedVehicle()),
           vehicle: { x: this.vehicle.position.x, y: this.vehicle.position.y, z: this.vehicle.position.z },
           characterPose: this.player.view.getPoseName(),
+          characterClip: this.glbCharacter?.getActiveClipName() ?? null,
           characterDrawCalls: this.characterMetrics.drawCalls,
           characterTriangles: this.characterMetrics.triangles,
           drawCalls: this.renderer.info.render.calls,
@@ -449,6 +504,7 @@ export class GameApp {
         this.cameraRig.reset(vehicle.yaw + Math.PI);
       },
       setCameraYaw: (yaw) => { this.cameraRig.reset(yaw); },
+      playGesture: (name) => this.player.view.playGesture(name as CharacterGestureName),
       resetMission: () => this.resetMission(),
       enterCity: () => this.enterCityExploration(),
     };
@@ -556,6 +612,7 @@ export class GameApp {
 
   private updateFreeRoamInteraction(): InteractableDefinition | null {
     const storyInteraction = this.storyDirector.updateInteraction(this.player.position, this.player.yaw);
+    this.activeStoryInteractionId = storyInteraction?.id ?? null;
     if (storyInteraction) {
       this.interactionSource = 'story';
       this.activeCityInteraction = null;
@@ -572,12 +629,21 @@ export class GameApp {
 
   private interactInFreeRoam(): void {
     if (this.interactionSource === 'story') {
-      this.handleStoryFeedback(this.storyDirector.interact());
+      const interactionId = this.activeStoryInteractionId;
+      const feedback = this.storyDirector.interact();
+      if (feedback.changed && interactionId) {
+        this.player.view.playGesture(storyGestureFor(interactionId));
+      }
+      this.handleStoryFeedback(feedback);
       return;
     }
     if (this.interactionSource === 'city' && this.activeCityInteraction) {
       const message = this.world.city.interact(this.activeCityInteraction.id);
-      if (message) this.ui.showStatus(message);
+      if (message) {
+        // Every streamed city interactable is a hinged door leaf.
+        this.player.view.playGesture('openDoor');
+        this.ui.showStatus(message);
+      }
     }
   }
 

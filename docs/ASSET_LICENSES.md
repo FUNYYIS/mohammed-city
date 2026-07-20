@@ -1,5 +1,15 @@
 # Asset licenses
 
+## Included in the character integration
+
+| Asset | Id | Source | License | Status |
+|---|---|---|---|---|
+| Mohammed boy-in-thobe rigged character + 12 merged animation clips (`public/assets/characters/mohammed/`) | `meshy-mohammed-2026` | Generated with Meshy AI from a project-owned character design | Meshy-generated asset owned by the project owner per Meshy's terms of service | **Approved, in use** |
+
+The merged-animations GLB is the runtime player visual. The character-only GLB
+in the same folder is kept as an inspection/fallback reference and is not
+loaded by the game.
+
 ## Included through Phase 3
 
 No third-party visual or audio assets are included. The approximate child character, environment, icon source, materials, and geometry are project-authored procedural assets. The character is an improved temporary visual and is **not** represented as a final likeness or final art.
@@ -25,7 +35,7 @@ Candidate packs must be visually reviewed as a coherent set before download. The
 
 ## Missing final assets
 
-- Final art-directed GLB boy character and authored animation clips. The current procedural child covers idle, walk, run, jump/fall, and crouch as a lightweight fallback.
+- ~~Final art-directed GLB boy character and authored animation clips.~~ Delivered by the Meshy character above; the procedural child remains only as a load-failure fallback. Still missing: crouch, fall, and neutral seated-idle clips.
 - Coherent stylized-realistic warehouse, street, workshop, and interior kit.
 - Vehicles with interiors and mobile-ready LODs.
 - Licensed environmental, UI, footsteps, doors, and engine audio.

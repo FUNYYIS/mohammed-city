@@ -13,9 +13,9 @@ const phaseOneAssets: AssetDefinition[] = [
   {
     id: 'character.mohammed',
     kind: 'character',
-    url: '/assets/characters/mohammed/mohammed.glb',
-    status: 'procedural-prototype',
-    licenseId: null,
+    url: '/assets/characters/mohammed/Meshy_AI_Boy_Thobe_Closed_Mout_biped_Meshy_AI_Meshy_Merged_Animations.glb',
+    status: 'approved',
+    licenseId: 'meshy-mohammed-2026',
     triangleBudget: [25_000, 60_000],
   },
   { id: 'building.warehouse', kind: 'building', url: null, status: 'procedural-prototype', licenseId: null },

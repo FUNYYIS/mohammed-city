@@ -112,7 +112,7 @@ const interactionLabels: Readonly<Record<string, string>> = {
   'drawer-clue': 'افحص الدرج المخفي',
 };
 
-const collectibleIds = new Set([
+export const collectibleIds = new Set([
   'recover-bicycle', 'old-key', 'map-fragment',
   'part-battery', 'part-belt', 'part-toolkit',
 ]);
