@@ -1,6 +1,9 @@
 import { registerSW } from 'virtual:pwa-register';
 import { GameApp } from './app/GameApp';
+import { ViewportFit } from './ui/ViewportFit';
 import './styles.css';
+
+ViewportFit.install();
 
 const root = document.querySelector<HTMLElement>('#app');
 if (!root) throw new Error('App root is missing');

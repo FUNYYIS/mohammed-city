@@ -1,4 +1,10 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+/** Boot overlay's mandatory first tap: unlocks audio, starts the character load, and reveals the menu once it settles. */
+async function tapBootStart(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'اضغط لبدء اللعبة' }).click();
+  await page.locator('[data-boot-overlay]').waitFor({ state: 'hidden', timeout: 25_000 });
+}
 
 test('starts, moves, jumps, crouches, pauses, and restores landscape play', async ({ page }) => {
   const consoleErrors: string[] = [];
@@ -6,6 +12,7 @@ test('starts, moves, jumps, crouches, pauses, and restores landscape play', asyn
   page.on('pageerror', (error) => consoleErrors.push(error.message));
 
   await page.goto('/');
+  await tapBootStart(page);
   await page.getByRole('button', { name: /ابدأ/ }).click();
   await expect(page.getByText('دور على لوحة الكهرباء داخل المستودع')).toBeVisible();
 
@@ -63,6 +70,7 @@ test('completes mission one, enters the streamed city, walks through both new in
   page.on('pageerror', (error) => consoleErrors.push(error.message));
 
   await page.goto('/');
+  await tapBootStart(page);
   await page.getByRole('button', { name: /ابدأ مهمة جديدة/ }).click();
   await page.waitForTimeout(650);
   await page.screenshot({ path: 'artifacts/screenshots/phase2-warehouse.png' });
@@ -163,6 +171,7 @@ test('completes mission one, enters the streamed city, walks through both new in
   await page.screenshot({ path: 'artifacts/screenshots/phase3-supermarket-interior.png' });
 
   await page.reload();
+  await tapBootStart(page);
   await page.getByRole('button', { name: /متابعة/ }).click();
   await expect.poll(
     async () => (await page.evaluate(() => window.__MC_TEST__?.getState()))!.freeRoam,
@@ -197,6 +206,7 @@ test('completes the phase four story, races, puzzle, repairs, map, and vehicle r
     localStorage.removeItem('mohammed-city.phase-four-story.v1');
   });
   await page.goto('/?debug');
+  await tapBootStart(page);
   await page.getByRole('button', { name: /متابعة/ }).click();
 
   const state = async () => page.evaluate(() => window.__MC_TEST__?.getState());

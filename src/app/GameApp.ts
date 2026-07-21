@@ -103,7 +103,11 @@ export class GameApp {
   private readonly interactionSystem: InteractionSystem;
   private characterMetrics: CharacterRenderMetrics;
   private glbCharacter: MohammedGlbCharacter | null = null;
-  private readonly characterReady: Promise<void>;
+  // Reassigned once the boot overlay's first tap kicks off the real load;
+  // the resolved placeholder keeps `start()` safe even if it were somehow
+  // reachable before that (it never is: the menu stays hidden until then).
+  private characterReady: Promise<void> = Promise.resolve();
+  private bootStarted = false;
   private readonly clock = new Clock(false);
   private started = false;
   private startPending = false;
@@ -159,7 +163,6 @@ export class GameApp {
     this.player.teleport(this.world.spawnPoint, Math.PI);
     this.characterMetrics = this.player.view.getRenderMetrics();
     this.world.scene.add(this.player.view.root);
-    this.characterReady = this.loadCharacterVisual();
     this.vehicle = new SimpleVehicleController(collisions, this.world.vehicleSpawn);
     this.vehicles.push(this.vehicle);
     this.world.scene.add(this.vehicle.root);
@@ -187,6 +190,7 @@ export class GameApp {
     this.input = new InputManager(canvas);
 
     this.ui.setContinueAvailable(this.missionRuntime.hasSavedProgress());
+    this.ui.onBootTap(() => this.handleBootTap());
     this.ui.onStart((resume) => this.start(resume));
     this.ui.onReset(() => this.resetMission());
     this.ui.onExploreCity(() => this.enterCityExploration());
@@ -218,6 +222,45 @@ export class GameApp {
       this.startPending = false;
       this.beginSession(resume);
     });
+  }
+
+  /**
+   * Boot overlay's single first-tap gesture. Unlocks audio synchronously
+   * (still inside the user-gesture stack), attempts fullscreen/orientation
+   * lock as a best-effort side effect, and starts loading the character —
+   * the loading UI stays up until that promise settles either way.
+   */
+  private handleBootTap(): void {
+    if (this.bootStarted) return;
+    this.bootStarted = true;
+    this.unlockAudioContext();
+    void this.attemptImmersivePresentation();
+    this.ui.showBootLoading();
+    this.characterReady = this.loadCharacterVisual();
+    void this.characterReady.then(() => this.ui.completeBootLoading());
+  }
+
+  /**
+   * Fullscreen and orientation-lock are optional enhancements only; iOS
+   * Safari commonly lacks or rejects both. Every failure is swallowed here
+   * so the boot flow never depends on or blocks on either succeeding.
+   */
+  private async attemptImmersivePresentation(): Promise<void> {
+    try {
+      await document.documentElement.requestFullscreen?.();
+    } catch {
+      // Ignored — the rotate/landscape prompt covers this case instead.
+    }
+    const orientation = screen.orientation as
+      | (ScreenOrientation & { lock?: (orientation: string) => Promise<void> })
+      | undefined;
+    if (document.fullscreenElement && orientation?.lock) {
+      try {
+        await orientation.lock('landscape');
+      } catch {
+        // Ignored — unsupported on iOS Safari; the rotate prompt covers it.
+      }
+    }
   }
 
   private async loadCharacterVisual(): Promise<void> {
@@ -363,6 +406,7 @@ export class GameApp {
 
   private installLifecycleHandlers(): void {
     window.addEventListener('resize', () => this.resize(), { passive: true });
+    window.addEventListener('orientationchange', () => this.resize(), { passive: true });
     window.visualViewport?.addEventListener('resize', () => this.resize(), { passive: true });
     document.addEventListener('visibilitychange', () => {
       this.appPaused = document.hidden

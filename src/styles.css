@@ -21,7 +21,56 @@ button { font: inherit; color: inherit; }
 .game-shell { position: fixed; inset: 0; width: 100dvw; height: 100dvh; overflow: hidden; background: linear-gradient(#8ebdca, #d6ddd4); }
 #game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: 0; }
 
-.menu-screen { position: absolute; inset: 0; z-index: 20; display: grid; grid-template-columns: minmax(280px, 0.78fr) minmax(310px, 0.54fr); align-items: center; gap: clamp(24px, 5vw, 88px); padding: max(28px, env(safe-area-inset-top)) max(7vw, calc(28px + env(safe-area-inset-right))) max(28px, env(safe-area-inset-bottom)) max(7vw, calc(28px + env(safe-area-inset-left))); background: linear-gradient(90deg, rgba(5, 20, 32, .22), rgba(5, 20, 32, .82) 62%, rgba(5, 20, 32, .94)); transition: opacity .5s ease, visibility .5s ease; }
+/*
+ * One fixed, always-fits overlay for the entire pre-game flow (tap to
+ * start, loading, rotate prompt). Sized from --app-width/--app-height
+ * (kept live by ViewportFit) with 100dvw/100dvh preferred where supported,
+ * so it never depends on the page being zoomed to fit. touch-action/
+ * user-select are scoped to this overlay only, not the whole document.
+ */
+.boot-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px;
+  width: var(--app-width, 100vw); height: var(--app-height, 100vh);
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  overflow: hidden;
+  touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  text-align: center;
+  background: radial-gradient(circle at 50% 38%, #123e57, #061722 78%);
+}
+@supports (height: 100dvh) {
+  .boot-overlay { width: 100dvw; height: 100dvh; }
+}
+.boot-overlay[data-boot-state="hidden"] { display: none; }
+.boot-stage { display: none; flex-direction: column; align-items: center; gap: 14px; max-width: min(92vw, 420px); }
+.boot-overlay[data-boot-state="awaiting-interaction"] .boot-stage[data-boot-stage="tap"] { display: flex; }
+.boot-overlay[data-boot-state="loading"] .boot-stage[data-boot-stage="loading"] { display: flex; }
+.boot-overlay[data-boot-state="rotate-required"] .boot-stage[data-boot-stage="rotate"] { display: flex; }
+.boot-eyebrow { margin: 0; color: rgba(255,255,255,.6); font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+.boot-tap-button { min-height: 56px; min-width: 48px; padding: 16px 34px; border: 0; border-radius: 18px; color: var(--ink); background: linear-gradient(135deg, #f8c876, var(--amber)); font: inherit; font-size: clamp(18px, 4.6vw, 24px); font-weight: 900; cursor: pointer; touch-action: manipulation; box-shadow: 0 16px 34px rgba(0,8,14,.32); }
+.boot-message { margin: 0; font-size: clamp(16px, 4vw, 21px); font-weight: 800; }
+.boot-submessage { margin: 0; color: rgba(255,255,255,.55); font-size: 12px; }
+.boot-spinner { width: 44px; height: 44px; border-radius: 50%; border: 4px solid rgba(255,255,255,.18); border-top-color: var(--amber); animation: boot-spin .9s linear infinite; }
+@keyframes boot-spin { to { transform: rotate(360deg); } }
+
+/*
+ * Base layout is a single stacked column so the combined minimum width of
+ * the brand text and the buttons can never exceed a narrow portrait phone's
+ * viewport (that combined-minmax overflow, pushed left by RTL and clipped
+ * by overflow:hidden, was the original unreachable-button bug). Two columns
+ * are opt-in, only once there is verified horizontal room in landscape.
+ */
+.menu-screen { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; gap: clamp(16px, 4vh, 40px); padding: max(28px, env(safe-area-inset-top)) max(7vw, calc(20px + env(safe-area-inset-right))) max(28px, env(safe-area-inset-bottom)) max(7vw, calc(20px + env(safe-area-inset-left))); background: linear-gradient(90deg, rgba(5, 20, 32, .22), rgba(5, 20, 32, .82) 62%, rgba(5, 20, 32, .94)); transition: opacity .5s ease, visibility .5s ease; }
+/* The [hidden] attribute alone loses to the class rule above on specificity
+   ties (author cascade order, not the UA default); this keeps the boot
+   overlay's gate from having a hidden-but-still-interactive menu underneath. */
+.menu-screen[hidden] { display: none; }
+@media (min-width: 620px) and (orientation: landscape) {
+  .menu-screen { flex-direction: row; gap: clamp(24px, 5vw, 88px); }
+  .brand-lockup { flex: 1 1 0; min-width: 0; }
+  .menu-actions { flex: 0 0 auto; }
+}
 .menu-screen.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 .menu-atmosphere { position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: .9; }
 .menu-atmosphere::before { content: ""; position: absolute; width: 38vw; height: 38vw; left: -8vw; top: -18vw; border-radius: 50%; background: radial-gradient(circle, rgba(255, 205, 117, .55), transparent 68%); filter: blur(10px); }
@@ -39,7 +88,7 @@ button { font: inherit; color: inherit; }
 .brand-lockup h1 em { display: block; color: #f0aa4d; font-style: normal; margin-right: .65em; }
 .brand-lockup p { margin: 16px 0 0; color: rgba(255,255,255,.56); direction: ltr; font-size: clamp(10px, 1.25vw, 15px); font-weight: 800; letter-spacing: .38em; }
 
-.menu-actions { display: grid; gap: 10px; width: min(100%, 420px); justify-self: start; }
+.menu-actions { display: grid; gap: 10px; width: min(100%, 420px); }
 .primary-button, .menu-button { position: relative; border: 0; border-radius: 18px; min-height: 70px; padding: 13px 18px; text-align: right; cursor: pointer; display: grid; grid-template-columns: 1fr auto; align-items: center; box-shadow: 0 16px 34px rgba(0, 8, 14, .22); transition: transform .16s ease, filter .16s ease; }
 .primary-button { color: var(--ink); background: linear-gradient(135deg, #f8c876, var(--amber)); }
 .primary-button b, .menu-button b { font-size: clamp(18px, 2vw, 25px); }
@@ -164,7 +213,7 @@ button { font: inherit; color: inherit; }
 }
 
 @media (max-height: 520px) {
-  .menu-screen { grid-template-columns: minmax(280px, .85fr) minmax(260px, .5fr); padding-top: 18px; padding-bottom: 18px; }
+  .menu-screen { padding-top: 18px; padding-bottom: 18px; }
   .brand-lockup { align-self: center; padding-bottom: 0; }
   .brand-lockup h1 { font-size: clamp(44px, 9.5vw, 82px); }
   .menu-actions { gap: 7px; }
@@ -174,7 +223,7 @@ button { font: inherit; color: inherit; }
 }
 
 @media (max-width: 680px) and (orientation: landscape) {
-  .menu-screen { grid-template-columns: 1fr .7fr; gap: 16px; padding-inline: max(24px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right)); }
+  .menu-screen { gap: 16px; padding-inline: max(24px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right)); }
   .brand-lockup h1 { font-size: 48px; }
   .brand-lockup p { font-size: 8px; }
   .menu-actions { gap: 6px; }

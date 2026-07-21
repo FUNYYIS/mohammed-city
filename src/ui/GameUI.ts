@@ -1,5 +1,9 @@
+type BootState = 'awaiting-interaction' | 'loading' | 'rotate-required' | 'hidden';
+
 export class GameUI {
   readonly root: HTMLElement;
+  private readonly bootOverlay: HTMLElement;
+  private readonly bootTapButton: HTMLButtonElement;
   private readonly menu: HTMLElement;
   private readonly hud: HTMLElement;
   private readonly controls: HTMLElement;
@@ -35,13 +39,35 @@ export class GameUI {
   private onResetHandler: (() => void) | null = null;
   private onExploreCityHandler: (() => void) | null = null;
   private onModalChangeHandler: ((open: boolean) => void) | null = null;
+  private onBootTapHandler: (() => void) | null = null;
+  private bootTapped = false;
+  private bootState: BootState = 'awaiting-interaction';
 
   constructor(root: HTMLElement) {
     this.root = root;
     root.innerHTML = `
       <main class="game-shell" aria-label="مدينة محمد">
         <canvas id="game-canvas" aria-label="مشهد مدينة محمد ثلاثي الأبعاد" tabindex="0"></canvas>
-        <section class="menu-screen" data-screen="menu">
+
+        <section class="boot-overlay" data-boot-overlay data-boot-state="awaiting-interaction" role="dialog" aria-modal="true" aria-label="بدء مدينة محمد">
+          <div class="boot-stage" data-boot-stage="tap">
+            <p class="boot-eyebrow">مدينة محمد</p>
+            <button class="boot-tap-button" data-boot-tap type="button"><b>اضغط لبدء اللعبة</b></button>
+          </div>
+          <div class="boot-stage" data-boot-stage="loading">
+            <p class="boot-eyebrow">مدينة محمد</p>
+            <div class="boot-spinner" aria-hidden="true"></div>
+            <p class="boot-message">جاري تحميل محمد…</p>
+            <p class="boot-submessage">لحظات ونبدأ المغامرة</p>
+          </div>
+          <div class="boot-stage" data-boot-stage="rotate">
+            <div class="phone-rotate" aria-hidden="true"><i></i><span>↻</span></div>
+            <p class="boot-message">لف الجوال بالعرض</p>
+            <p class="boot-submessage">اللعبة مصممة للوضع الأفقي</p>
+          </div>
+        </section>
+
+        <section class="menu-screen" data-screen="menu" hidden>
           <div class="menu-atmosphere" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
           <div class="brand-lockup">
             <span class="eyebrow">مغامرة جديدة تبدأ من هنا</span>
@@ -126,6 +152,8 @@ export class GameUI {
         <aside class="input-debug-overlay" data-input-debug hidden aria-label="تشخيص الإدخال اللمسي"></aside>
       </main>`;
 
+    this.bootOverlay = this.required('[data-boot-overlay]');
+    this.bootTapButton = this.required<HTMLButtonElement>('[data-boot-tap]');
     this.menu = this.required('[data-screen="menu"]');
     this.hud = this.required('[data-screen="hud"]');
     this.controls = this.required('[data-screen="controls"]');
@@ -148,9 +176,30 @@ export class GameUI {
     this.interactButton = this.required<HTMLButtonElement>('[data-action="interact"]');
     this.vehicleButton = this.required<HTMLButtonElement>('[data-action="vehicle"]');
     this.bindMenu();
+    this.bindBootOverlay();
     this.updateOrientation();
     window.addEventListener('resize', () => this.updateOrientation(), { passive: true });
+    window.addEventListener('orientationchange', () => this.updateOrientation(), { passive: true });
     window.visualViewport?.addEventListener('resize', () => this.updateOrientation(), { passive: true });
+  }
+
+  /** Registers the boot overlay's single first-tap handler; fires at most once. */
+  onBootTap(handler: () => void): void {
+    this.onBootTapHandler = handler;
+  }
+
+  /** Moves the boot overlay from the tap prompt into the loading state. */
+  showBootLoading(): void {
+    this.setBootState('loading');
+  }
+
+  /**
+   * Called once character/asset loading settles (success or fallback).
+   * Reveals the menu immediately if landscape, otherwise asks for a rotate
+   * and continues automatically once the device turns landscape.
+   */
+  completeBootLoading(): void {
+    this.setBootState(this.portrait ? 'rotate-required' : 'hidden');
   }
 
   onStart(handler: (resume: boolean) => void): void {
@@ -315,12 +364,38 @@ export class GameUI {
     });
   }
 
+  private bindBootOverlay(): void {
+    const handleTap = (): void => {
+      if (this.bootTapped) return;
+      this.bootTapped = true;
+      this.onBootTapHandler?.();
+    };
+    // pointerup fires before the browser's synthesized click on touch
+    // devices; the bootTapped guard keeps whichever fires first from
+    // triggering the handler twice.
+    this.bootTapButton.addEventListener('pointerup', handleTap);
+    this.bootTapButton.addEventListener('click', handleTap);
+  }
+
+  private setBootState(state: BootState): void {
+    this.bootState = state;
+    this.bootOverlay.dataset.bootState = state;
+    this.menu.hidden = state !== 'hidden';
+  }
+
   private updateOrientation(): void {
+    // A plain aspect-ratio comparison is already immune to Safari's
+    // toolbar animating in/out: that only shifts height by a few dozen
+    // pixels, far short of what it would take to flip which side is
+    // larger on any real landscape phone width.
     const nextPortrait = window.innerHeight > window.innerWidth;
     if (nextPortrait === this.portrait) return;
     this.portrait = nextPortrait;
     this.rotateOverlay.classList.toggle('is-visible', this.portrait);
     this.refreshGameplayLayers();
+    if (this.bootState === 'rotate-required' && !this.portrait) {
+      this.setBootState('hidden');
+    }
   }
 
   private refreshGameplayLayers(): void {
