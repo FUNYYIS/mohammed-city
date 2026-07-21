@@ -1,6 +1,4 @@
 import {
-  ConeGeometry,
-  CylinderGeometry,
   Group,
   Mesh,
   MeshStandardMaterial,
@@ -8,10 +6,13 @@ import {
   Vector3,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { ALL_CITY_MODEL_URLS, CITY_MODEL_URLS } from '../assets/AssetRegistry';
 import { HingedCityDoor } from '../entities/doors/HingedCityDoor';
 import { CityNPC } from '../entities/npc/CityNPC';
+import { AmbientTraffic } from '../entities/vehicles/AmbientTraffic';
 import type { InteractableDefinition } from '../interactions/InteractionSystem';
 import { CollisionWorld } from '../physics/CollisionWorld';
+import { placeModel } from './CityProps';
 import {
   ZoneStreamingManager,
   type StreamedZoneContent,
@@ -81,6 +82,17 @@ export class CityDistricts {
     ], root, collisions, cameraObstacles);
   }
 
+  /**
+   * Every GLB used while streaming city districts, so GameApp can preload
+   * them once before gameplay is visible. Delegates to the full curated
+   * catalog rather than hand-listing a subset, so a model actually used by
+   * CityDistricts/CityNPC/SimpleVehicleController can never be silently
+   * missing from the preload (it would otherwise fall back invisibly).
+   */
+  static getPreloadUrls(): readonly string[] {
+    return ALL_CITY_MODEL_URLS;
+  }
+
   update(delta: number, navigationPosition: Vector3, playerPosition: Vector3): CityStreamingUpdate {
     this.streaming.update(delta, navigationPosition, playerPosition);
     const location = this.getLocationLabel(navigationPosition);
@@ -137,6 +149,10 @@ export class CityDistricts {
     const trim = material(colors.teal, 0.76);
     const roof = material(colors.navy, 0.82);
 
+    // Mohammed's house is an enterable interior with an authored, furnished
+    // room behind this door; it keeps its procedural shell this phase (real
+    // exterior replacement is deferred to the interior-buildout pass) so the
+    // walk-in room, furniture, and door hinge all keep working unchanged.
     this.addSolid(root, colliderIds, cameraObstacles, 'home-back', new Vector3(-34, 2.3, 10), new Vector3(12, 4.6, 0.3), wall);
     this.addSolid(root, colliderIds, cameraObstacles, 'home-left', new Vector3(-40, 2.3, 16), new Vector3(0.3, 4.6, 12), wall);
     this.addSolid(root, colliderIds, cameraObstacles, 'home-right', new Vector3(-28, 2.3, 16), new Vector3(0.3, 4.6, 12), wall);
@@ -170,7 +186,8 @@ export class CityDistricts {
     this.addSolid(root, colliderIds, cameraObstacles, 'home-table', new Vector3(-34, 0.55, 17), new Vector3(1.7, 1.1, 1.25), material(colors.wood, 0.88));
 
     this.addTree(root, -25, 9, 1.05);
-    this.addTree(root, -23, 13, 0.9);
+    this.addTree(root, -23, 13, 0.9, true);
+    this.addStreetLamp(root, -37, 24.5);
     const resident = new CityNPC('neighborhood-resident', 'أبو راشد', [
       new Vector3(-25, 0, 20),
       new Vector3(-21, 0, 20),
@@ -199,6 +216,8 @@ export class CityDistricts {
     const trim = material(colors.coral, 0.76);
     const roof = material(colors.navy, 0.84);
 
+    // The supermarket is an enterable interior; its shell/door/interior stay
+    // procedural this phase for the same reason as the house above.
     this.addSolid(root, colliderIds, cameraObstacles, 'market-back', new Vector3(30, 2.5, 48), new Vector3(16, 5, 0.3), wall);
     this.addSolid(root, colliderIds, cameraObstacles, 'market-left', new Vector3(22, 2.5, 42), new Vector3(0.3, 5, 12), wall);
     this.addSolid(root, colliderIds, cameraObstacles, 'market-right', new Vector3(38, 2.5, 42), new Vector3(0.3, 5, 12), wall);
@@ -234,9 +253,39 @@ export class CityDistricts {
     this.addSolid(root, colliderIds, cameraObstacles, 'market-cashier', new Vector3(35, 0.65, 38), new Vector3(3.4, 1.3, 0.8), material(colors.wood, 0.82));
     this.addSolid(root, colliderIds, cameraObstacles, 'market-fridge', new Vector3(23, 1.25, 44.5), new Vector3(0.75, 2.5, 4), material(0xdde8e6, 0.5));
 
-    this.addStorefront(root, colliderIds, cameraObstacles, 'bakery', 18, 17.2, colors.amber);
-    this.addStorefront(root, colliderIds, cameraObstacles, 'corner-shop', 45, 17.2, colors.teal);
+    // Bakery and corner-shop are plain (non-enterable) storefronts, exactly
+    // the kind of background building this phase replaces with a real model.
+    this.addStorefront(root, colliderIds, cameraObstacles, 'bakery', 18, 17.2, CITY_MODEL_URLS.buildings.e);
+    this.addStorefront(root, colliderIds, cameraObstacles, 'corner-shop', 45, 17.2, CITY_MODEL_URLS.buildings.b);
     for (const x of [14, 42, 50]) this.addStreetLamp(root, x, 21.6);
+    this.addRoadSign(root, 6, 26, Math.PI / 2);
+    this.addRoadSign(root, 56, 26, -Math.PI / 2);
+    this.addTree(root, 12, 16, 1, true);
+    this.addTree(root, 54, 16, 1);
+
+    const parkedCar = placeModel(CITY_MODEL_URLS.vehicles.taxi, {
+      id: 'commercial-street-parked-taxi',
+      // Kept clear of the shopper's patrol rectangle (x:14-22, z:22.2-35)
+      // and the worker's path (x=31), which it previously overlapped.
+      position: new Vector3(38, 0, 26),
+      yaw: Math.PI / 2,
+      targetHeight: 1.5,
+      collisions: this.collisions,
+    });
+    if (parkedCar) root.add(parkedCar.object);
+    if (parkedCar?.colliderId) colliderIds.push(parkedCar.colliderId);
+
+    const trafficCars: AmbientTraffic[] = [];
+    const vanClone = placeModel(CITY_MODEL_URLS.vehicles.van, {
+      id: 'commercial-street-traffic-van',
+      position: new Vector3(0, 0, 0),
+      targetHeight: 1.55,
+      collidable: false,
+    });
+    if (vanClone) {
+      trafficCars.push(new AmbientTraffic(vanClone.object, new Vector3(6, 0, 29), new Vector3(54, 0, 29), 4.2));
+    }
+    trafficCars.forEach((car) => root.add(car.root));
 
     const worker = new CityNPC('market-worker', 'سالم', [
       new Vector3(31, 0, 45.5),
@@ -259,6 +308,7 @@ export class CityDistricts {
         door.update(delta);
         worker.update(delta, player);
         shopper.update(delta, player);
+        trafficCars.forEach((car) => car.update(delta));
       },
       interact: (id) => id === door.interactable.id ? door.toggle() : null,
       setActive: (active) => door.setZoneActive(active),
@@ -270,18 +320,41 @@ export class CityDistricts {
     const root = new Group();
     const colliderIds: string[] = [];
     const cameraObstacles: Object3D[] = [];
-    const warehouse = material(0x42616b, 0.91);
-    const trim = material(colors.amber, 0.76);
-    for (const x of [-21, 21]) {
-      this.addSolid(root, colliderIds, cameraObstacles, `outer-warehouse-${x}`, new Vector3(x, 2.8, -5), new Vector3(10, 5.6, 13), warehouse);
-      const sign = new Mesh(new RoundedBoxGeometry(5.2, 0.65, 0.18, 3, 0.07), trim);
-      sign.position.set(x, 4.5, 1.58);
-      root.add(sign);
+
+    // These are the city-view exterior shells of the warehouse buildings
+    // (Mission 1's own walk-in warehouse is a separate world entirely), so a
+    // real industrial building model can fully replace the old box+sign.
+    const industrialUrls = [CITY_MODEL_URLS.buildings.industrialA, CITY_MODEL_URLS.buildings.industrialR];
+    for (const [index, x] of [-21, 21].entries()) {
+      const building = placeModel(industrialUrls[index], {
+        id: `outer-warehouse-${x}`,
+        position: new Vector3(x, 0, -5),
+        targetHeight: 6,
+        collisions: this.collisions,
+      });
+      if (building) {
+        root.add(building.object);
+        cameraObstacles.push(building.object);
+        if (building.colliderId) colliderIds.push(building.colliderId);
+      }
     }
-    const crateMaterial = material(colors.wood, 0.94);
+
     for (const [index, x, z] of [[0, -13, -10], [1, 13, -8], [2, 15, 0]] as const) {
-      this.addSolid(root, colliderIds, cameraObstacles, `yard-crate-${index}`, new Vector3(x, 0.75, z), new Vector3(1.5, 1.5, 1.5), crateMaterial);
+      const crate = placeModel(CITY_MODEL_URLS.props.crate, {
+        id: `yard-crate-${index}`,
+        position: new Vector3(x, 0, z),
+        targetHeight: 1.5,
+        collisions: this.collisions,
+      });
+      if (crate) {
+        root.add(crate.object);
+        cameraObstacles.push(crate.object);
+        if (crate.colliderId) colliderIds.push(crate.colliderId);
+      }
     }
+    this.addStreetLamp(root, -8, -12);
+    this.addStreetLamp(root, 8, -12);
+
     const guard = new CityNPC('warehouse-guard', 'حارس المستودع', [
       new Vector3(10, 0, 1.5),
       new Vector3(15, 0, 1.5),
@@ -302,13 +375,36 @@ export class CityDistricts {
     const root = new Group();
     const colliderIds: string[] = [];
     const cameraObstacles: Object3D[] = [];
-    const workshop = material(colors.dark, 0.86);
-    const trim = material(colors.amber, 0.78);
-    this.addSolid(root, colliderIds, cameraObstacles, 'secondary-garage-back', new Vector3(15, 2.35, 58), new Vector3(12, 4.7, 0.32), workshop);
-    this.addSolid(root, colliderIds, cameraObstacles, 'secondary-garage-left', new Vector3(9, 2.35, 53), new Vector3(0.32, 4.7, 10), workshop);
-    this.addSolid(root, colliderIds, cameraObstacles, 'secondary-garage-right', new Vector3(21, 2.35, 53), new Vector3(0.32, 4.7, 10), workshop);
-    this.addSolid(root, colliderIds, cameraObstacles, 'secondary-garage-roof', new Vector3(15, 4.8, 53), new Vector3(12.4, 0.25, 10.4), trim);
+
+    const building = placeModel(CITY_MODEL_URLS.buildings.industrialK, {
+      id: 'secondary-garage',
+      position: new Vector3(15, 0, 53),
+      yaw: Math.PI / 2,
+      targetHeight: 5,
+      collisions: this.collisions,
+    });
+    if (building) {
+      root.add(building.object);
+      cameraObstacles.push(building.object);
+      if (building.colliderId) colliderIds.push(building.colliderId);
+    }
     this.addSolid(root, colliderIds, cameraObstacles, 'garage-tool-chest', new Vector3(9.5, 0.65, 39.5), new Vector3(1.2, 1.3, 2.8), material(colors.coral, 0.75));
+
+    const parkedCar = placeModel(CITY_MODEL_URLS.vehicles.sedan, {
+      id: 'garage-district-parked-sedan',
+      position: new Vector3(18, 0, 40),
+      yaw: Math.PI,
+      targetHeight: 1.45,
+      collisions: this.collisions,
+    });
+    if (parkedCar) {
+      root.add(parkedCar.object);
+      cameraObstacles.push(parkedCar.object);
+      if (parkedCar.colliderId) colliderIds.push(parkedCar.colliderId);
+    }
+    this.addTree(root, 3, 48, 1);
+    this.addStreetLamp(root, 3, 44);
+
     const mechanic = new CityNPC('garage-owner', 'صاحب الكراج', [
       new Vector3(8.5, 0, 43),
       new Vector3(11, 0, 43),
@@ -332,31 +428,51 @@ export class CityDistricts {
     id: string,
     x: number,
     z: number,
-    accentColor: number,
+    buildingUrl: string,
   ): void {
-    const building = this.addSolid(root, colliderIds, obstacles, `${id}-shell`, new Vector3(x, 2.4, z), new Vector3(10, 4.8, 7.5), material(colors.cream, 0.92));
-    building.receiveShadow = true;
-    const awning = new Mesh(new RoundedBoxGeometry(7, 0.35, 1.4, 3, 0.12), material(accentColor, 0.7));
-    awning.position.set(x, 3.15, 21.05);
-    root.add(awning);
+    const building = placeModel(buildingUrl, {
+      id: `${id}-shell`,
+      position: new Vector3(x, 0, z),
+      yaw: Math.PI,
+      targetHeight: 4.6,
+      collisions: this.collisions,
+    });
+    if (!building) return;
+    root.add(building.object);
+    obstacles.push(building.object);
+    if (building.colliderId) colliderIds.push(building.colliderId);
   }
 
-  private addTree(root: Group, x: number, z: number, scale: number): void {
-    const trunk = new Mesh(new CylinderGeometry(0.16 * scale, 0.22 * scale, 2.2 * scale, 8), material(colors.wood, 0.95));
-    trunk.position.set(x, 1.1 * scale, z);
-    const crown = new Mesh(new ConeGeometry(1.05 * scale, 2.6 * scale, 9), material(colors.green, 0.94));
-    crown.position.set(x, 2.8 * scale, z);
-    trunk.castShadow = true;
-    crown.castShadow = true;
-    root.add(trunk, crown);
+  private addTree(root: Group, x: number, z: number, scale: number, detailed = false): void {
+    const url = detailed ? CITY_MODEL_URLS.props.treeDetailed : CITY_MODEL_URLS.props.treeDefault;
+    const placed = placeModel(url, {
+      id: `tree-${x}-${z}`,
+      position: new Vector3(x, 0, z),
+      targetHeight: 4 * scale,
+      collidable: false,
+    });
+    if (placed) root.add(placed.object);
   }
 
   private addStreetLamp(root: Group, x: number, z: number): void {
-    const pole = new Mesh(new CylinderGeometry(0.08, 0.12, 3.6, 9), material(colors.dark, 0.62));
-    pole.position.set(x, 1.8, z);
-    const lamp = new Mesh(new RoundedBoxGeometry(0.65, 0.22, 0.42, 2, 0.05), material(0xffdda0, 0.45));
-    lamp.position.set(x, 3.55, z);
-    root.add(pole, lamp);
+    const placed = placeModel(CITY_MODEL_URLS.props.streetLamp, {
+      id: `lamp-${x}-${z}`,
+      position: new Vector3(x, 0, z),
+      targetHeight: 3.6,
+      collidable: false,
+    });
+    if (placed) root.add(placed.object);
+  }
+
+  private addRoadSign(root: Group, x: number, z: number, yaw = 0): void {
+    const placed = placeModel(CITY_MODEL_URLS.props.roadSign, {
+      id: `sign-${x}-${z}`,
+      position: new Vector3(x, 0, z),
+      yaw,
+      targetHeight: 2.6,
+      collidable: false,
+    });
+    if (placed) root.add(placed.object);
   }
 
   private addSolid(

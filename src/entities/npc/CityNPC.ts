@@ -1,20 +1,36 @@
 import {
+  AnimationAction,
+  AnimationMixer,
+  Box3,
   CylinderGeometry,
   Group,
+  LoopRepeat,
   MathUtils,
   Mesh,
   MeshStandardMaterial,
+  Object3D,
   SphereGeometry,
   Vector3,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { CITY_MODEL_URLS } from '../../assets/AssetRegistry';
+import { cityAssetCache } from '../../assets/GlbModelCache';
 
 const nextPosition = new Vector3();
+const NPC_MODEL_URLS = Object.values(CITY_MODEL_URLS.npcs);
+const TARGET_NPC_HEIGHT = 1.68;
+const ANIMATION_FADE = 0.3;
 
 export interface CityNPCStyle {
   clothing: number;
   accent: number;
   skin?: number;
+}
+
+function pickModelUrl(id: string): string {
+  let hash = 0;
+  for (let index = 0; index < id.length; index += 1) hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
+  return NPC_MODEL_URLS[hash % NPC_MODEL_URLS.length];
 }
 
 export class CityNPC {
@@ -25,6 +41,11 @@ export class CityNPC {
   private readonly rightLeg = new Group();
   private elapsed = 0;
   private waypointIndex = 0;
+  private usingRealModel = false;
+  private mixer: AnimationMixer | null = null;
+  private idleAction: AnimationAction | null = null;
+  private walkAction: AnimationAction | null = null;
+  private currentAction: AnimationAction | null = null;
 
   constructor(
     readonly id: string,
@@ -65,6 +86,10 @@ export class CityNPC {
     }
 
     const walking = !nearPlayer && distance >= 0.18;
+    if (this.usingRealModel) {
+      this.updateRealAnimation(walking, delta);
+      return;
+    }
     const swing = walking ? Math.sin(this.elapsed * 7.5) * 0.42 : Math.sin(this.elapsed * 1.8) * 0.035;
     this.leftArm.rotation.x = swing;
     this.rightArm.rotation.x = -swing;
@@ -72,7 +97,70 @@ export class CityNPC {
     this.rightLeg.rotation.x = swing * 0.8;
   }
 
+  private updateRealAnimation(walking: boolean, delta: number): void {
+    const next = (walking ? this.walkAction : this.idleAction) ?? this.currentAction;
+    if (next && next !== this.currentAction) {
+      next.reset().play();
+      if (this.currentAction) this.currentAction.crossFadeTo(next, ANIMATION_FADE, false);
+      else next.fadeIn(ANIMATION_FADE);
+      this.currentAction = next;
+    }
+    this.mixer?.update(delta);
+  }
+
   private buildVisual(style: CityNPCStyle): void {
+    const url = pickModelUrl(this.id);
+    const model = cityAssetCache.clone(url);
+    if (model) {
+      this.buildRealVisual(model, url);
+      return;
+    }
+    console.warn(`[CityNPC] "${url}" not cached; falling back to the procedural pedestrian for ${this.id}`);
+    this.buildProceduralVisual(style);
+  }
+
+  private buildRealVisual(model: Object3D, url: string): void {
+    model.updateMatrixWorld(true);
+    const bounds = new Box3().setFromObject(model);
+    const nativeHeight = bounds.max.y - bounds.min.y;
+    const scale = nativeHeight > 0.001 ? TARGET_NPC_HEIGHT / nativeHeight : 1;
+
+    const orientation = new Group();
+    orientation.name = 'npc-orientation';
+    orientation.rotation.y = Math.PI;
+    model.position.y -= bounds.min.y;
+    orientation.add(model);
+
+    const wrapper = new Group();
+    wrapper.name = 'npc-real-model';
+    wrapper.scale.setScalar(scale);
+    wrapper.add(orientation);
+    this.root.add(wrapper);
+
+    model.traverse((object) => {
+      if (object instanceof Mesh) { object.castShadow = true; object.receiveShadow = true; }
+    });
+
+    const clips = cityAssetCache.getClips(url);
+    const idleClip = clips.find((clip) => clip.name === 'idle');
+    const walkClip = clips.find((clip) => clip.name === 'walk');
+    if (idleClip || walkClip) {
+      this.mixer = new AnimationMixer(model);
+      if (idleClip) {
+        this.idleAction = this.mixer.clipAction(idleClip);
+        this.idleAction.setLoop(LoopRepeat, Infinity);
+        this.idleAction.play();
+        this.currentAction = this.idleAction;
+      }
+      if (walkClip) {
+        this.walkAction = this.mixer.clipAction(walkClip);
+        this.walkAction.setLoop(LoopRepeat, Infinity);
+      }
+    }
+    this.usingRealModel = true;
+  }
+
+  private buildProceduralVisual(style: CityNPCStyle): void {
     const skin = new MeshStandardMaterial({ color: style.skin ?? 0xb97855, roughness: 0.82 });
     const clothes = new MeshStandardMaterial({ color: style.clothing, roughness: 0.86 });
     const accent = new MeshStandardMaterial({ color: style.accent, roughness: 0.72 });

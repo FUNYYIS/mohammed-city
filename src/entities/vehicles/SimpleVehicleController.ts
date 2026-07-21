@@ -1,15 +1,30 @@
 import {
+  Box3,
   CylinderGeometry,
   Group,
   MathUtils,
   Mesh,
   MeshStandardMaterial,
+  Object3D,
   Vector3,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { CITY_MODEL_URLS } from '../../assets/AssetRegistry';
+import { cityAssetCache } from '../../assets/GlbModelCache';
 import type { InputSnapshot } from '../../controls/InputManager';
 import type { CapsuleShape } from '../../physics/CollisionWorld';
 import { CollisionWorld } from '../../physics/CollisionWorld';
+
+/**
+ * Real Kenney Car Kit model per drivable kind. Bicycles keep the procedural
+ * visual (no suitable CC0 bicycle GLB was sourced this phase).
+ */
+const REAL_VEHICLE_MODEL_URLS: Readonly<Partial<Record<VehicleKind, string>>> = {
+  compact: CITY_MODEL_URLS.vehicles.sedan,
+  sport: CITY_MODEL_URLS.vehicles.sedanSports,
+  classic: CITY_MODEL_URLS.vehicles.taxi,
+};
+const TARGET_VEHICLE_HEIGHT = 1.45;
 
 export type VehicleKind = 'compact' | 'sport' | 'bicycle' | 'classic';
 
@@ -53,7 +68,9 @@ export class SimpleVehicleController {
   speed = 0;
   occupied = false;
   available = true;
-  private readonly wheels: Mesh[] = [];
+  private readonly wheels: Object3D[] = [];
+  private visualGroup = new Group();
+  private usingRealModel = false;
   private readonly initialPosition = new Vector3();
   private readonly colliderId: string;
   private readonly size: Vector3;
@@ -89,6 +106,11 @@ export class SimpleVehicleController {
     this.initialYaw = yaw;
     this.root.name = this.id;
     this.buildVisual(config.paint);
+    // buildVisual() adds procedural parts straight to root; regroup them
+    // under visualGroup so a later real-model swap can remove them as one
+    // unit without touching buildCar/buildBicycle's individual mesh calls.
+    while (this.root.children.length > 0) this.visualGroup.add(this.root.children[0]);
+    this.root.add(this.visualGroup);
     this.syncTransform();
     this.collisions.addBox(
       this.colliderId,
@@ -195,6 +217,45 @@ export class SimpleVehicleController {
 
   getColliderId(): string {
     return this.colliderId;
+  }
+
+  /**
+   * Swaps the procedural placeholder for the real Kenney Car Kit model once
+   * it is available in the shared cache. Safe to call before the cache is
+   * warm (returns false and keeps the procedural visual, matching the
+   * player character's load-failure fallback pattern) and a no-op if
+   * already swapped or if this kind has no real-model mapping (bicycle).
+   */
+  trySwapToRealModel(): boolean {
+    if (this.usingRealModel) return true;
+    const url = REAL_VEHICLE_MODEL_URLS[this.kind];
+    if (!url) return false;
+    const model = cityAssetCache.clone(url);
+    if (!model) return false;
+
+    this.root.remove(this.visualGroup);
+    this.wheels.length = 0;
+    model.updateMatrixWorld(true);
+    const bounds = new Box3().setFromObject(model);
+    const nativeHeight = bounds.max.y - bounds.min.y;
+    const scale = nativeHeight > 0.001 ? TARGET_VEHICLE_HEIGHT / nativeHeight : 1;
+
+    const wrapper = new Group();
+    wrapper.name = `${this.id}-real-model`;
+    wrapper.scale.setScalar(scale);
+    wrapper.add(model);
+    for (const name of ['wheel-front-left', 'wheel-front-right', 'wheel-back-left', 'wheel-back-right']) {
+      const wheel = model.getObjectByName(name);
+      if (wheel) this.wheels.push(wheel);
+    }
+    model.traverse((object) => {
+      if (object instanceof Mesh) { object.castShadow = true; object.receiveShadow = true; }
+    });
+
+    this.visualGroup = wrapper;
+    this.root.add(wrapper);
+    this.usingRealModel = true;
+    return true;
   }
 
   private syncTransform(): void {

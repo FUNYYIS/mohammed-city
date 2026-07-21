@@ -14,6 +14,7 @@ import { PlayerController } from '../entities/player/PlayerController';
 import type { CharacterGestureName, CharacterRenderMetrics } from '../entities/player/CharacterVisual';
 import { MohammedGlbCharacter } from '../entities/player/MohammedGlbCharacter';
 import { assetRegistry } from '../assets/AssetRegistry';
+import { cityAssetCache } from '../assets/GlbModelCache';
 import { collectibleIds } from '../world/StoryWorld';
 import { InteractionSystem, type InteractableDefinition } from '../interactions/InteractionSystem';
 import { MISSION_ONE } from '../missions/definitions/missionOne';
@@ -24,6 +25,7 @@ import { StoryMissionDirector, type StoryFeedback } from '../missions/runtime/St
 import { StoryMissionRuntime } from '../missions/runtime/StoryMissionRuntime';
 import { BrowserMissionStorage } from '../save/BrowserMissionStorage';
 import { GameUI } from '../ui/GameUI';
+import { CityDistricts } from '../world/CityDistricts';
 import { MissionOneWorld } from '../world/MissionOneWorld';
 
 const storyGreetingIds = new Set([
@@ -236,8 +238,16 @@ export class GameApp {
     this.unlockAudioContext();
     void this.attemptImmersivePresentation();
     this.ui.showBootLoading();
-    this.characterReady = this.loadCharacterVisual();
-    void this.characterReady.then(() => this.ui.completeBootLoading());
+    this.characterReady = Promise.all([
+      this.loadCharacterVisual(),
+      cityAssetCache.preload(CityDistricts.getPreloadUrls()),
+    ]).then(() => {});
+    void this.characterReady.then(() => {
+      // this.vehicle (Mission 1's car) was constructed before the cache was
+      // warm, so it started with its procedural fallback; swap it now.
+      this.vehicle.trySwapToRealModel();
+      this.ui.completeBootLoading();
+    });
   }
 
   /**
@@ -757,6 +767,10 @@ export class GameApp {
       this.vehicles.push(vehicle);
       this.world.scene.add(vehicle.root);
       vehicle.setAvailable(false);
+      // ensureStoryVehicles() only ever runs once free-roam is reachable,
+      // which is always after the boot overlay's asset preload settles, so
+      // the cache is already warm and this swap is effectively immediate.
+      vehicle.trySwapToRealModel();
     }
   }
 
