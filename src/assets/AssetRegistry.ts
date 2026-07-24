@@ -60,6 +60,11 @@ export const CITY_MODEL_URLS = {
     femaleA: '/assets/models/npcs/mini-characters/character-female-a.glb',
     femaleD: '/assets/models/npcs/mini-characters/character-female-d.glb',
   },
+  roads: {
+    lane2: '/assets/models/production/reference/downtown/Street_2Lane_noSidewalk.gltf',
+    lane4: '/assets/models/production/reference/downtown/Street_4Lane_noSidewalk.gltf',
+    intersection4Way: '/assets/models/production/reference/downtown/Street_4WayIntersection.gltf',
+  },
 } as const;
 
 /** Flattened for preloading everything in one pass. */
@@ -108,6 +113,14 @@ const phaseOneAssets: AssetDefinition[] = [
     status: 'approved',
     licenseId: 'kenney-mini-characters-2026',
     triangleBudget: [700, 900],
+  })),
+  ...Object.entries(CITY_MODEL_URLS.roads).map(([key, url]): AssetDefinition => ({
+    id: `road.production.${key}`,
+    kind: 'prop',
+    url,
+    status: 'approved',
+    licenseId: 'downtown-city-megakit-standard',
+    triangleBudget: [10, 400],
   })),
 ];
 

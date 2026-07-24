@@ -21,6 +21,7 @@ import type { InteractableDefinition } from '../interactions/InteractionSystem';
 import type { MissionProgress } from '../missions/runtime/MissionRuntime';
 import { CollisionWorld } from '../physics/CollisionWorld';
 import type { ZoneStreamingState } from '../streaming/ZoneStreamingManager';
+import { buildMissionRoadNetwork } from './CityRoads';
 import { CityDistricts, type CityStreamingUpdate } from './CityDistricts';
 import { MISSION_ONE_TOP_SURFACES, type MissionSurfaceMaterial } from './MissionOneSurfaceLayout';
 import { StoryWorld } from './StoryWorld';
@@ -296,11 +297,24 @@ export class MissionOneWorld {
       grass: new MeshStandardMaterial({ color: 0x69816b, roughness: 1, side: DoubleSide }),
     };
     MISSION_ONE_TOP_SURFACES.forEach((surface) => {
+      // Real road tiles (buildRoadNetwork) replace the flat placeholder for
+      // 'road' surfaces once the GLB cache is warm; skip drawing it here so
+      // the old code-drawn plane is never present to show through or flash.
+      if (surface.material === 'road') return;
       const mesh = this.plane(surface.width, surface.depth, materials[surface.material]);
       mesh.name = surface.id;
       mesh.position.set(surface.centerX, 0, surface.centerZ);
       this.root.add(mesh);
     });
+  }
+
+  /**
+   * Places the real road tiles once their GLB cache is warm. Called once
+   * from GameApp's boot gate, after `cityAssetCache.preload` for the road
+   * URLs settles, so the network is complete before gameplay is revealed.
+   */
+  buildRoadNetwork(): void {
+    buildMissionRoadNetwork(this.root);
   }
 
   private addWarehouse(): Mesh {

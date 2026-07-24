@@ -13,7 +13,7 @@ import { SimpleVehicleController } from '../entities/vehicles/SimpleVehicleContr
 import { PlayerController } from '../entities/player/PlayerController';
 import type { CharacterGestureName, CharacterRenderMetrics } from '../entities/player/CharacterVisual';
 import { MohammedGlbCharacter } from '../entities/player/MohammedGlbCharacter';
-import { assetRegistry } from '../assets/AssetRegistry';
+import { assetRegistry, CITY_MODEL_URLS } from '../assets/AssetRegistry';
 import { cityAssetCache } from '../assets/GlbModelCache';
 import { collectibleIds } from '../world/StoryWorld';
 import { InteractionSystem, type InteractableDefinition } from '../interactions/InteractionSystem';
@@ -241,11 +241,13 @@ export class GameApp {
     this.characterReady = Promise.all([
       this.loadCharacterVisual(),
       cityAssetCache.preload(CityDistricts.getPreloadUrls()),
+      cityAssetCache.preload(Object.values(CITY_MODEL_URLS.roads)),
     ]).then(() => {});
     void this.characterReady.then(() => {
       // this.vehicle (Mission 1's car) was constructed before the cache was
       // warm, so it started with its procedural fallback; swap it now.
       this.vehicle.trySwapToRealModel();
+      this.world.buildRoadNetwork();
       this.ui.completeBootLoading();
     });
   }
