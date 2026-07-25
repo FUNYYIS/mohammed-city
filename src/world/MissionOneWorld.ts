@@ -22,6 +22,7 @@ import type { MissionProgress } from '../missions/runtime/MissionRuntime';
 import { CollisionWorld } from '../physics/CollisionWorld';
 import type { ZoneStreamingState } from '../streaming/ZoneStreamingManager';
 import { buildMissionRoadNetwork } from './CityRoads';
+import { buildMissionSidewalks } from './CitySidewalks';
 import { CityDistricts, type CityStreamingUpdate } from './CityDistricts';
 import { MISSION_ONE_TOP_SURFACES, type MissionSurfaceMaterial } from './MissionOneSurfaceLayout';
 import { StoryWorld } from './StoryWorld';
@@ -317,6 +318,14 @@ export class MissionOneWorld {
     buildMissionRoadNetwork(this.root);
   }
 
+  /**
+   * Places the real sidewalk/curb tiles flanking the road network. Called
+   * alongside buildRoadNetwork() once their GLB cache is warm.
+   */
+  buildSidewalks(): void {
+    buildMissionSidewalks(this.root);
+  }
+
   private addWarehouse(): Mesh {
     const wallMaterial = new MeshStandardMaterial({ color: palette.warehouse, roughness: 0.86 });
     const trimMaterial = new MeshStandardMaterial({ color: palette.warehouseTrim, roughness: 0.92 });
@@ -425,17 +434,12 @@ export class MissionOneWorld {
   }
 
   private addStreet(): void {
-    const curbMaterial = new MeshStandardMaterial({ color: palette.curb, roughness: 0.96 });
-    for (const x of [-6.25, 6.25]) {
-      for (const [segment, centerZ, depth] of [['south', 14.25, 19.5], ['north', 36, 4]] as const) {
-        const curb = new Mesh(new RoundedBoxGeometry(2.5, 0.2, depth, 3, 0.08), curbMaterial);
-        curb.position.set(x, 0.1, centerZ);
-        curb.receiveShadow = true;
-        this.root.add(curb);
-        this.collisions.addBox(`street-curb-${segment}-${x}`, curb.position, new Vector3(2.5, 0.2, depth), false);
-      }
-    }
-
+    // The old primitive code-drawn curb (RoundedBoxGeometry, with real
+    // collision) that used to run alongside the road here has been replaced
+    // by the real Downtown City MegaKit sidewalk/curb tiles built in
+    // CitySidewalks.ts. Its collision boxes overlapped the new sidewalk
+    // footprint and physically blocked Mohammed from standing on or crossing
+    // it, so it's removed rather than left underneath the real asset.
     const stripeMaterial = new MeshStandardMaterial({
       color: 0xf0c367,
       roughness: 0.82,

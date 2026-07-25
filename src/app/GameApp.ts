@@ -242,12 +242,14 @@ export class GameApp {
       this.loadCharacterVisual(),
       cityAssetCache.preload(CityDistricts.getPreloadUrls()),
       cityAssetCache.preload(Object.values(CITY_MODEL_URLS.roads)),
+      cityAssetCache.preload(Object.values(CITY_MODEL_URLS.sidewalks)),
     ]).then(() => {});
     void this.characterReady.then(() => {
       // this.vehicle (Mission 1's car) was constructed before the cache was
       // warm, so it started with its procedural fallback; swap it now.
       this.vehicle.trySwapToRealModel();
       this.world.buildRoadNetwork();
+      this.world.buildSidewalks();
       this.ui.completeBootLoading();
     });
   }

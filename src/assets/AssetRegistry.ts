@@ -65,6 +65,11 @@ export const CITY_MODEL_URLS = {
     lane4: '/assets/models/production/reference/downtown/Street_4Lane_noSidewalk.gltf',
     intersection4Way: '/assets/models/production/reference/downtown/Street_4WayIntersection.gltf',
   },
+  sidewalks: {
+    straight3m: '/assets/models/production/reference/downtown/Sidewalk_Straight_3m.gltf',
+    cornerFlat3m: '/assets/models/production/reference/downtown/Sidewalk_Corner_Flat_3m.gltf',
+    noCurb3m: '/assets/models/production/reference/downtown/Sidewalk_NoCurb_3m.gltf',
+  },
 } as const;
 
 /** Flattened for preloading everything in one pass. */
@@ -116,6 +121,14 @@ const phaseOneAssets: AssetDefinition[] = [
   })),
   ...Object.entries(CITY_MODEL_URLS.roads).map(([key, url]): AssetDefinition => ({
     id: `road.production.${key}`,
+    kind: 'prop',
+    url,
+    status: 'approved',
+    licenseId: 'downtown-city-megakit-standard',
+    triangleBudget: [10, 400],
+  })),
+  ...Object.entries(CITY_MODEL_URLS.sidewalks).map(([key, url]): AssetDefinition => ({
+    id: `sidewalk.production.${key}`,
     kind: 'prop',
     url,
     status: 'approved',
