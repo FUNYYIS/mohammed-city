@@ -28,6 +28,20 @@ import { GameUI } from '../ui/GameUI';
 import { CityDistricts } from '../world/CityDistricts';
 import { MissionOneWorld } from '../world/MissionOneWorld';
 
+// A viewport whose shorter side is at most this many CSS pixels is treated as
+// a phone screen (this also matches the 844x390 iPhone-landscape size used by
+// the e2e suite), independent of the desktop camera tuning below.
+const MOBILE_VIEWPORT_MAX_DIMENSION = 520;
+// Mohammed is 1.74m tall (MohammedGlbCharacter's TARGET_NET_HEIGHT) and the
+// camera looks at CAMERA_TARGET_HEIGHT=1.28m, so the feet — not the head —
+// are the binding crop constraint at 1.28m below the look-at point. At the
+// rig's 58 degree vertical FOV that puts the theoretical crop floor at
+// 1.28 / tan(29 deg) =~ 2.31m; these picks keep >=15% clearance above it
+// while sitting materially closer than the shared desktop distances below.
+const MOBILE_OUTDOOR_DISTANCE = 3.0;
+const MOBILE_INDOOR_DISTANCE = 2.7;
+const MOBILE_VEHICLE_DISTANCE_SCALE = 0.65;
+
 const storyGreetingIds = new Set([
   'friend-report', 'witness-one', 'witness-two', 'garage-race-talk', 'garage-parts-talk',
 ]);
@@ -131,6 +145,7 @@ export class GameApp {
   private readonly debugCameraTarget = new Vector3();
   private readonly cameraFollowTarget = new Vector3();
   private readonly debugEnabled = new URLSearchParams(window.location.search).has('debug');
+  private isMobileViewport = false;
 
   constructor(root: HTMLElement) {
     this.ui = new GameUI(root);
@@ -299,7 +314,7 @@ export class GameApp {
     this.vehicle.reset();
     this.player.teleport(this.world.getSpawnForProgress(progress), Math.PI);
     this.player.view.root.visible = true;
-    this.cameraRig.distance = 5.5;
+    this.cameraRig.distance = this.mobileAware(5.5, MOBILE_OUTDOOR_DISTANCE);
     this.cameraRig.mode = 'indoor';
     this.cameraRig.reset(Math.PI);
     this.input.reset();
@@ -394,7 +409,9 @@ export class GameApp {
         const indoor = this.world.city.isInsideInterior(this.player.position)
           || this.isInsideOldHouse(this.player.position);
         this.cameraRig.mode = indoor ? 'indoor' : 'outdoor';
-        this.cameraRig.distance = indoor ? 4.15 : 5.5;
+        this.cameraRig.distance = indoor
+          ? this.mobileAware(4.15, MOBILE_INDOOR_DISTANCE)
+          : this.mobileAware(5.5, MOBILE_OUTDOOR_DISTANCE);
       }
     }
     this.getCameraFollowTarget();
@@ -413,9 +430,15 @@ export class GameApp {
     const viewport = window.visualViewport;
     const width = Math.max(1, Math.round(viewport?.width ?? window.innerWidth));
     const height = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
+    this.isMobileViewport = Math.min(width, height) <= MOBILE_VIEWPORT_MAX_DIMENSION;
     this.renderer.setSize(width, height, false);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     this.cameraRig.resize(width, height);
+  }
+
+  /** Desktop distance is returned unchanged; only phone-sized viewports get the closer value. */
+  private mobileAware(desktopDistance: number, mobileDistance: number): number {
+    return this.isMobileViewport ? mobileDistance : desktopDistance;
   }
 
   private installLifecycleHandlers(): void {
@@ -552,7 +575,7 @@ export class GameApp {
         this.getOccupiedVehicle()?.exit();
         this.player.teleport(new Vector3(x, y, z), yaw);
         this.player.view.root.visible = true;
-        this.cameraRig.distance = 5.5;
+        this.cameraRig.distance = this.mobileAware(5.5, MOBILE_OUTDOOR_DISTANCE);
         this.cameraRig.reset(this.cameraRig.yaw);
       },
       teleportActiveVehicle: (x, z, yaw) => {
@@ -579,7 +602,10 @@ export class GameApp {
     vehicle.enter();
     this.player.view.root.visible = false;
     this.cameraRig.mode = 'vehicle';
-    this.cameraRig.distance = vehicle.kind === 'bicycle' ? 5.8 : 7;
+    this.cameraRig.distance = this.mobileAware(
+      vehicle.kind === 'bicycle' ? 5.8 : 7,
+      (vehicle.kind === 'bicycle' ? 5.8 : 7) * MOBILE_VEHICLE_DISTANCE_SCALE,
+    );
     this.cameraRig.reset(vehicle.yaw + Math.PI);
     if (this.freeRoam) this.handleStoryFeedback(this.storyDirector.vehicleEntered(vehicle.id));
     else this.handleMissionFeedback(this.missionDirector.vehicleEntered());
@@ -599,7 +625,7 @@ export class GameApp {
     this.player.teleport(exit, exitYaw);
     this.player.view.root.visible = true;
     this.cameraRig.mode = 'outdoor';
-    this.cameraRig.distance = 5.5;
+    this.cameraRig.distance = this.mobileAware(5.5, MOBILE_OUTDOOR_DISTANCE);
     this.cameraRig.reset(this.cameraRig.yaw);
     this.ui.setVehicleAction(null);
   }
@@ -631,7 +657,7 @@ export class GameApp {
     this.player.teleport(this.world.getSpawnForProgress(progress), Math.PI);
     this.player.view.root.visible = true;
     this.cameraRig.mode = 'indoor';
-    this.cameraRig.distance = 5.5;
+    this.cameraRig.distance = this.mobileAware(5.5, MOBILE_OUTDOOR_DISTANCE);
     this.cameraRig.reset(Math.PI);
     this.input.reset();
     this.appPaused = false;
@@ -657,7 +683,7 @@ export class GameApp {
     this.player.teleport(this.world.city.cityStartPoint, cityEntryYaw);
     this.player.view.root.visible = true;
     this.cameraRig.mode = 'outdoor';
-    this.cameraRig.distance = 5.5;
+    this.cameraRig.distance = this.mobileAware(5.5, MOBILE_OUTDOOR_DISTANCE);
     this.cameraRig.reset(cityEntryYaw);
     this.input.reset();
     this.ui.enterCityExploration();
