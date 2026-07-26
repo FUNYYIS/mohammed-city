@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  base: '/mohammed-city/',
   plugins: [
     VitePWA({
       registerType: 'prompt',
@@ -9,7 +10,7 @@ export default defineConfig({
       manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
-        navigateFallback: '/index.html',
+        navigateFallback: '/mohammed-city/index.html',
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: false,
