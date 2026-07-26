@@ -16,6 +16,33 @@ const input = (overrides: Partial<InputSnapshot> = {}): InputSnapshot => ({
 });
 
 describe('PlayerController', () => {
+  it('restores control, grounding, collision movement, and running after leaving a vehicle', () => {
+    const world = new CollisionWorld();
+    world.addBox('vehicle-collider', new Vector3(0, 0.7, 0), new Vector3(1.9, 1.4, 3.4));
+    const player = new PlayerController(world);
+    player.suspendForVehicle();
+    expect(player.isControlEnabled()).toBe(false);
+
+    const safeExit = new Vector3(2.45, 0, 0);
+    player.resumeAfterVehicleExit(safeExit, Math.PI);
+    expect(player.isControlEnabled()).toBe(true);
+    expect(player.grounded).toBe(true);
+    expect(player.velocity.lengthSq()).toBe(0);
+    expect(world.overlapsCapsule(player.position, player.standingShape)).toBe(false);
+
+    const walkingStart = player.position.clone();
+    for (let frame = 0; frame < 20; frame += 1) {
+      player.update(1 / 60, input({ move: new Vector2(0, 1) }), Math.PI);
+    }
+    const walkingDistance = player.position.distanceTo(walkingStart);
+    const runningStart = player.position.clone();
+    for (let frame = 0; frame < 20; frame += 1) {
+      player.update(1 / 60, input({ move: new Vector2(0, 1), run: true }), Math.PI);
+    }
+    expect(walkingDistance).toBeGreaterThan(0.4);
+    expect(player.position.distanceTo(runningStart)).toBeGreaterThan(walkingDistance);
+  });
+
   it('rejects a second jump while airborne', () => {
     const player = new PlayerController(new CollisionWorld());
     player.update(1 / 60, input({ jumpPressed: true }), 0);

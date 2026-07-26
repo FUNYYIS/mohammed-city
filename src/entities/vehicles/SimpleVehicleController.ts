@@ -57,6 +57,18 @@ const DEFAULT_CONFIG: VehicleConfig = {
 const proposedPosition = new Vector3();
 const colliderCenter = new Vector3();
 const exitCandidate = new Vector3();
+const exitDirection = new Vector3();
+const EXIT_CLEARANCE = 0.08;
+const EXIT_DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
+  [1, 0],
+  [-1, 0],
+  [0, -1],
+  [0, 1],
+  [1, -1],
+  [-1, -1],
+  [1, 1],
+  [-1, 1],
+];
 
 export class SimpleVehicleController {
   readonly root = new Group();
@@ -168,15 +180,29 @@ export class SimpleVehicleController {
   findSafeExit(shape: CapsuleShape): Vector3 | null {
     const rightX = Math.cos(this.yaw);
     const rightZ = -Math.sin(this.yaw);
-    const sideDistance = this.kind === 'bicycle' ? 1.25 : 1.65;
-    const candidates = [
-      [rightX * sideDistance, rightZ * sideDistance],
-      [-rightX * sideDistance, -rightZ * sideDistance],
-      [-Math.sin(this.yaw) * 2.0, -Math.cos(this.yaw) * 2.0],
-    ];
-    for (const [x, z] of candidates) {
-      exitCandidate.set(this.position.x + x, 0, this.position.z + z);
-      if (!this.collisions.overlapsCapsule(exitCandidate, shape, this.ignoredCollider)) {
+    const forwardX = Math.sin(this.yaw);
+    const forwardZ = Math.cos(this.yaw);
+    // The vehicle collider is an axis-aligned world box. A radius larger
+    // than its half-diagonal plus Mohammed's capsule guarantees that every
+    // candidate starts outside that collider, whatever the vehicle yaw.
+    const exitDistance = Math.hypot(this.size.x * 0.5, this.size.z * 0.5)
+      + shape.radius
+      + EXIT_CLEARANCE;
+
+    for (const [rightAmount, forwardAmount] of EXIT_DIRECTIONS) {
+      exitDirection.set(
+        rightX * rightAmount + forwardX * forwardAmount,
+        0,
+        rightZ * rightAmount + forwardZ * forwardAmount,
+      ).normalize().multiplyScalar(exitDistance);
+      exitCandidate.set(
+        this.position.x + exitDirection.x,
+        this.position.y,
+        this.position.z + exitDirection.z,
+      );
+      // Deliberately include this vehicle's collider in the check. Ignoring
+      // it here was the root cause of intermittent post-exit movement locks.
+      if (!this.collisions.overlapsCapsule(exitCandidate, shape)) {
         return exitCandidate.clone();
       }
     }

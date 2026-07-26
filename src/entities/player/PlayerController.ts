@@ -19,6 +19,7 @@ export class PlayerController {
   grounded = true;
   crouching = false;
   yaw = 0;
+  private controlEnabled = true;
   private currentSpeed = 0;
 
   constructor(private readonly collisionWorld: CollisionWorld) {
@@ -26,6 +27,7 @@ export class PlayerController {
   }
 
   update(delta: number, input: InputSnapshot, cameraYaw: number): void {
+    if (!this.controlEnabled) return;
     const safeDelta = Math.min(delta, 1 / 20);
     const wasGrounded = this.grounded;
     this.crouching = input.crouch;
@@ -105,7 +107,23 @@ export class PlayerController {
     return this.currentSpeed;
   }
 
+  isControlEnabled(): boolean {
+    return this.controlEnabled;
+  }
+
+  suspendForVehicle(): void {
+    this.controlEnabled = false;
+    this.velocity.set(0, 0, 0);
+    this.currentSpeed = 0;
+    this.crouching = false;
+  }
+
+  resumeAfterVehicleExit(position: Vector3, yaw: number): void {
+    this.teleport(position, yaw);
+  }
+
   teleport(position: Vector3, yaw = this.yaw): void {
+    this.controlEnabled = true;
     this.position.copy(position);
     this.velocity.set(0, 0, 0);
     this.yaw = yaw;

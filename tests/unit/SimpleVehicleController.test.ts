@@ -58,14 +58,29 @@ describe('SimpleVehicleController', () => {
     }
   });
 
-  it('finds a safe side exit and never returns a blocked candidate', () => {
-    const world = new CollisionWorld();
-    const car = new SimpleVehicleController(world, new Vector3());
+  it('finds 10 consecutive safe exits outside its own collider across locations and headings', () => {
     const shape = { radius: 0.4, height: 1.82 };
-    const exit = car.findSafeExit(shape);
+    const scenarios = [
+      { position: new Vector3(0, 0, 10.2), yaw: 0 },
+      { position: new Vector3(0, 0, 10.2), yaw: Math.PI / 6 },
+      { position: new Vector3(0, 0, 10.2), yaw: Math.PI / 4 },
+      { position: new Vector3(0, 0, 10.2), yaw: Math.PI / 2 },
+      { position: new Vector3(0, 0, 10.2), yaw: Math.PI * 0.75 },
+      { position: new Vector3(0, 0, 18), yaw: Math.PI },
+      { position: new Vector3(0, 0, 18), yaw: -Math.PI / 6 },
+      { position: new Vector3(0, 0, 18), yaw: -Math.PI / 4 },
+      { position: new Vector3(0, 0, 18), yaw: -Math.PI / 2 },
+      { position: new Vector3(0, 0, 18), yaw: -Math.PI * 0.75 },
+    ];
 
-    expect(exit).not.toBeNull();
-    expect(world.overlapsCapsule(exit!, shape, new Set(['mission-car-collider']))).toBe(false);
+    for (const scenario of scenarios) {
+      const world = new CollisionWorld();
+      const car = new SimpleVehicleController(world, scenario.position, scenario.yaw);
+      const exit = car.findSafeExit(shape);
+      expect(exit).not.toBeNull();
+      expect(world.overlapsCapsule(exit!, shape)).toBe(false);
+      expect(exit!.distanceTo(car.position)).toBeLessThanOrEqual(2.65);
+    }
   });
 
   it('supports independently gated bicycle and sport-car controllers', () => {

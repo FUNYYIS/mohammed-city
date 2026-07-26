@@ -63,6 +63,9 @@ declare global {
         portrait: boolean;
         grounded: boolean;
         crouching: boolean;
+        playerControlEnabled: boolean;
+        playerVisible: boolean;
+        playerOverlappingCollider: boolean;
         player: { x: number; y: number; z: number };
         playerRootY: number;
         visualLocalY: number;
@@ -74,6 +77,7 @@ declare global {
         generatorOn: boolean;
         doorOpen: boolean;
         vehicleOccupied: boolean;
+        vehicleSpeed: number;
         vehicle: { x: number; y: number; z: number };
         characterPose: string;
         characterClip: string | null;
@@ -538,6 +542,12 @@ export class GameApp {
           portrait: this.ui.isPortrait(),
           grounded: this.player.grounded,
           crouching: this.player.crouching,
+          playerControlEnabled: this.player.isControlEnabled(),
+          playerVisible: this.player.view.root.visible,
+          playerOverlappingCollider: this.world.collisions.overlapsCapsule(
+            this.player.position,
+            this.player.standingShape,
+          ),
           player: { x: this.player.position.x, y: this.player.position.y, z: this.player.position.z },
           playerRootY: this.player.view.root.position.y,
           visualLocalY: this.player.view.visualRoot.position.y,
@@ -549,6 +559,7 @@ export class GameApp {
           generatorOn: this.world.isGeneratorOn(),
           doorOpen: this.world.isDoorOpen(),
           vehicleOccupied: Boolean(this.getOccupiedVehicle()),
+          vehicleSpeed: this.vehicle.speed,
           vehicle: { x: this.vehicle.position.x, y: this.vehicle.position.y, z: this.vehicle.position.z },
           characterPose: this.player.view.getPoseName(),
           characterClip: this.glbCharacter?.getActiveClipName() ?? null,
@@ -600,6 +611,7 @@ export class GameApp {
 
   private enterVehicle(vehicle: SimpleVehicleController): void {
     vehicle.enter();
+    this.player.suspendForVehicle();
     this.player.view.root.visible = false;
     this.cameraRig.mode = 'vehicle';
     this.cameraRig.distance = this.mobileAware(
@@ -622,7 +634,7 @@ export class GameApp {
     }
     const exitYaw = vehicle.yaw + Math.PI;
     vehicle.exit();
-    this.player.teleport(exit, exitYaw);
+    this.player.resumeAfterVehicleExit(exit, exitYaw);
     this.player.view.root.visible = true;
     this.cameraRig.mode = 'outdoor';
     this.cameraRig.distance = this.mobileAware(5.5, MOBILE_OUTDOOR_DISTANCE);
